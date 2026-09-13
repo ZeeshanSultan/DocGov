@@ -1,5 +1,6 @@
 import path from 'node:path';
 import * as yaml from './yaml.js';
+import * as schema from './schema.js';
 import { read, write, exists, DocGovError } from './util.js';
 
 /** Human override (PRD §40). Recorded, reasoned, optionally expiring — never silent. */
@@ -8,7 +9,7 @@ export function load(root, cfg) {
   const file = path.join(root, cfg.suppressions_file || '.docgov/suppressions.yaml');
   if (!exists(file)) return { version: 1, suppressions: [] };
   try {
-    const s = yaml.parse(read(file)) || {};
+    const s = schema.check('suppressions', yaml.parse(read(file)) || {}, file);
     s.suppressions ||= [];
     return s;
   } catch (e) { throw new DocGovError(`suppressions file is not valid: ${e.message}`); }

@@ -1,4 +1,5 @@
 import path from 'node:path';
+import * as schema from './schema.js';
 import { RELATIONSHIPS, AUTHORITY } from './taxonomy.js';
 import { write, read, exists, matchAny } from './util.js';
 
@@ -88,7 +89,7 @@ export class Graph {
 
   toJSON() {
     return {
-      version: 1,
+      version: schema.SCHEMA.graph,
       generated: new Date().toISOString().slice(0, 10),
       nodes: [...this.nodes.values()],
       edges: this.edges,
@@ -173,7 +174,7 @@ export function save(root, g) { return write(path.join(root, GRAPH_PATH), JSON.s
 
 export function loadSaved(root) {
   const f = path.join(root, GRAPH_PATH);
-  return exists(f) ? JSON.parse(read(f)) : null;
+  return exists(f) ? schema.check('graph', JSON.parse(read(f)), GRAPH_PATH) : null;
 }
 
 /** Which code-node globs does a changed file belong to? */

@@ -22,6 +22,25 @@ Two more constraints worth knowing before you write code:
 - **Enforcement is a cost.** Every rule that blocks buys correctness with someone's patience.
   Propose rules as warnings unless they are unambiguous.
 
+## Changing a persisted format
+
+Everything DocGov writes into `.docgov/` is a format other repositories now hold: config,
+registry, graph, suppressions, the fix plan, the checklist, the capability registry. Their
+versions live in one place, `core/schema.js`.
+
+Raise a version when a change would make an older DocGov **misread** the file — a renamed or
+retyped field, or one whose meaning changed. Do not raise it for an added optional field: an
+older build ignores that harmlessly, and a version bump costs every adopter an upgrade.
+
+Every raise needs a migration in `schema.migrate()`, or an entry in the changelog saying why
+none is possible. A file from a *newer* DocGov is always refused rather than interpreted —
+an older build cannot know what a later one meant, and guessing at a governance file is how
+a migration destroys somebody's repository.
+
+A file with no version at all predates the check. It is treated as version 1 and must keep
+working; rejecting it would break every repository that adopted DocGov before this existed.
+
+
 ## Development setup
 
 ```bash

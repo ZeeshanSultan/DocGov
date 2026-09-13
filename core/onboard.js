@@ -1,4 +1,5 @@
 import path from 'node:path';
+import * as schema from './schema.js';
 import { classify, destinationFor } from './classify.js';
 import { TYPES, AUTHORITY, typeDef } from './taxonomy.js';
 import { similarPairs } from './similarity.js';
@@ -208,7 +209,7 @@ export function plan({ root, cfg, docs, inv, graph, registry }) {
   };
 
   return {
-    version: 1, generated: new Date().toISOString(),
+    version: schema.SCHEMA.plan, generated: new Date().toISOString(),
     layout: cfg.project.layout, mode: cfg.project.mode,
     git: { repo: gitAvailable, clean: gitAvailable ? isClean(root) : false },
     summary, classifications, actions, duplicates, contradictionCandidates, gaps, brokenLinks: broken,

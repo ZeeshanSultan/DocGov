@@ -1,5 +1,6 @@
 import path from 'node:path';
 import * as yaml from './yaml.js';
+import * as schema from './schema.js';
 import { read, write, exists, DocGovError } from './util.js';
 
 export const REGISTRY_PATH = '.docgov/registry.yaml';
@@ -14,6 +15,7 @@ export function load(root) {
   let r;
   try { r = yaml.parse(read(file)) || {}; }
   catch (e) { throw new DocGovError(`${REGISTRY_PATH} is not valid: ${e.message}`); }
+  r = schema.check('registry', r, REGISTRY_PATH);
   r.documents ||= {};
   return r;
 }
@@ -21,7 +23,7 @@ export function load(root) {
 export function save(root, registry) {
   const sorted = {};
   for (const k of Object.keys(registry.documents).sort()) sorted[k] = registry.documents[k];
-  return write(path.join(root, REGISTRY_PATH), yaml.stringify({ version: registry.version || 1, documents: sorted }));
+  return write(path.join(root, REGISTRY_PATH), yaml.stringify(schema.stamp('registry', { documents: sorted })));
 }
 
 /**

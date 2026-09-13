@@ -6,7 +6,6 @@ import { rewriteLinks } from './links.js';
 import { frontmatterFor } from './templates.js';
 import { read, write, exists, DocGovError, EXIT } from './util.js';
 import { classify } from './classify.js';
-import * as schema from './schema.js';
 import { PLAN_DATA_PATH } from './onboard.js';
 
 /**

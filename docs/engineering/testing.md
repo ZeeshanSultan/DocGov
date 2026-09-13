@@ -52,6 +52,11 @@ commit real files, and run the real binary as a subprocess.
 - **That every persisted artifact declares a version**, that one from a newer DocGov is
   refused with a message naming both versions, and that a file predating the check still
   loads — the last is the one that matters, because it is every existing adopter.
+- **That every `--json` output declares one too**, asserted by running each command rather
+  than by reading the source, so a new output cannot be added without one going unnoticed.
+- **That the fix plan is checked before `fix` or `inspect` acts on it** — refused when newer,
+  accepted when unversioned, and named plainly when unparseable. This is the artifact whose
+  misreading actually moves files.
 - **That a page with TOML or JSON frontmatter comes out byte-identical**, and is named as
   left alone rather than silently skipped.
 - **That a scan which could not see everything says so**, in both the human output and

@@ -1132,6 +1132,54 @@ test('schema: a file from a newer DocGov is refused, an unversioned one is not',
   }
 });
 
+test('schema: every machine-readable output declares a version too', () => {
+  // A `--json` output is not written to disk, but a skill, a hook or a CI job parses it,
+  // which makes its shape a contract exactly as much as a file's is. These four carried no
+  // version at all: a reader had no way to tell which DocGov produced the shape it got.
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  wf(dir, 'docs/a.md', '# D\n\nbody\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+
+  for (const args of [['check'], ['stale'], ['brief', 'auth'], ['health'], ['rules'],
+    ['rules', '--for', 'src/a.js'], ['checklist'], ['registry'], ['graph']]) {
+    const r = cli(dir, [...args, '--json']);
+    const parsed = JSON.parse(r.out);
+    assert.equal(typeof parsed.version, 'number',
+      `docgov ${args.join(' ')} --json must declare a version, got ${r.out.slice(0, 120)}`);
+  }
+});
+
+test('schema: the fix plan is checked before anything acts on it', () => {
+  // The plan is the one artifact DocGov both writes and reads, and the one whose misreading
+  // actually moves files. It declared `version` long before anything looked at it.
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  wf(dir, 'docs/a.md', '# D\n\nbody\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  cli(dir, ['review']);
+  const planPath = path.join(dir, '.docgov', 'fix-plan.json');
+  const plan = JSON.parse(fs.readFileSync(planPath, 'utf8'));
+
+  // from a newer DocGov → refuse, in both readers, rather than execute a guess
+  fs.writeFileSync(planPath, JSON.stringify({ ...plan, version: 9 }));
+  for (const args of [['fix', '--dry-run'], ['inspect', 'contradictions']]) {
+    const r = cli(dir, args);
+    assert.match(r.out, /newer DocGov/, `docgov ${args.join(' ')} must refuse a newer plan`);
+  }
+
+  // written before the field was enforced → still runs, or every early adopter breaks
+  delete plan.version;
+  fs.writeFileSync(planPath, JSON.stringify(plan));
+  assert.equal(cli(dir, ['fix', '--dry-run']).code, EXIT.OK, 'an unversioned plan must still run');
+
+  // unparseable → say which file and what to do about it, not a raw JSON trace
+  fs.writeFileSync(planPath, 'not json');
+  assert.match(cli(dir, ['fix', '--dry-run']).out, /fix-plan\.json is not valid JSON.*docgov review/s);
+});
+
 test('schema: the refusal reaches the user through a hook, which still fails open', () => {
   const dir = tmpRepo();
   wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');

@@ -13,6 +13,27 @@ with a migration note.
 
 ### Added
 
+- **Every persisted artifact declares a version, and every read checks it.** Config, the
+  registry, the graph, suppressions, the fix plan, the checklist and the capability registry
+  each carry a top-level `version`; so does every `--json` document — findings, the context
+  pack, health and the rule set — because a skill, a hook or a CI job parses those, and a
+  shape someone else's code parses is a contract whether or not it was saved to disk.
+  Versions live in one place, `core/schema.js`.
+
+  Several files already said `version: 1` and nothing ever read it back, so a future DocGov
+  writing version 2 would have been silently misread by an older build rather than refused.
+  Now: a file from a **newer** DocGov is refused outright, naming both versions; a file with
+  **no** version predates the check, is treated as version 1, and keeps working — that is
+  every repository which adopted DocGov before this existed, and none of them break. The fix
+  plan is the case that mattered most, being the only artifact DocGov both writes and reads
+  and the only one whose misreading moves files; `fix` and `inspect contradictions` now share
+  one checked loader so neither can skip it.
+
+  No version has been raised, so there is nothing to migrate. The compatibility policy —
+  when to raise a number, and what a raise obliges you to ship with it — is written down in
+  [CONTRIBUTING.md](CONTRIBUTING.md#changing-a-persisted-format). The field is `version`
+  rather than `schemaVersion` because that is what the files already in the wild say.
+
 - **`create` searches before it creates.** It only ever checked whether its own target path
   was taken, so `docgov create user.guide "Setup"` cheerfully wrote a fourth setup guide
   beside `docs/getting-started.md` — well-formed, correctly typed, in the right directory,

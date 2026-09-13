@@ -21,6 +21,11 @@ Every `docgov` command, what it does, and what it writes to disk.
 Every command takes `--json` (and `--compact` for single-line JSON). Exit codes are the same
 everywhere: **0** fine · **1** blocked · **2** needs a look · **3** config error.
 
+Every `--json` document carries a top-level `version`, as does every file DocGov writes into
+`.docgov/`. If you parse one, read that field: a shape you do not recognise is a DocGov newer
+than the code reading it. See
+[CONTRIBUTING.md](../../CONTRIBUTING.md#changing-a-persisted-format) for when it changes.
+
 Each command is also a skill, so `/docgov:review` in Claude Code does what `docgov review`
 does in your terminal, then reads the result for you.
 

@@ -1,12 +1,13 @@
 import { DocGovError } from './util.js';
 
 /**
- * Versions for everything DocGov persists.
+ * Versions for everything DocGov persists, and everything it emits for a machine to parse.
  *
- * The moment another repository holds one of these files, DocGov owns a data format it can
- * no longer change freely. Several artifacts already carried `version: 1` — but nothing ever
- * read it back, so a future DocGov writing version 2 would have been silently misread by an
- * older one rather than refused. A version nobody checks is decoration.
+ * The moment another repository holds one of these files — or a skill, hook or CI job parses
+ * one of these `--json` outputs — DocGov owns a data format it can no longer change freely.
+ * Several artifacts already carried `version: 1` — but nothing ever read it back, so a future
+ * DocGov writing version 2 would have been silently misread by an older one rather than
+ * refused. A version nobody checks is decoration.
  *
  * The field is `version`, not `schemaVersion`, because that is what the files in the wild
  * already say. Matching the data that exists is worth more than matching a nicer name.
@@ -17,6 +18,7 @@ import { DocGovError } from './util.js';
  * `migrate()` below, or a reason in the changelog why none is possible.
  */
 export const SCHEMA = {
+  // Files under .docgov/, which other repositories hold on disk.
   config: 1,
   registry: 1,
   graph: 1,
@@ -24,13 +26,21 @@ export const SCHEMA = {
   plan: 1,
   checklist: 1,
   tools: 1,
+  // Machine-readable output. Nothing writes these to disk, but a skill, a hook or a CI job
+  // parses them, which makes their shape a contract exactly as much as a file's is. The
+  // reader is someone else's code, so all DocGov can do for them is say which shape this is.
+  findings: 1,
+  brief: 1,
+  health: 1,
+  rules: 1,
 };
 
 /** Human names, so an error says what the file is rather than which key it belongs to. */
 const LABELS = {
   config: 'configuration', registry: 'document registry', graph: 'documentation graph',
   suppressions: 'suppressions file', plan: 'fix plan', checklist: 'change checklist',
-  tools: 'capability registry',
+  tools: 'capability registry', findings: 'findings report', brief: 'context pack',
+  health: 'health report', rules: 'rule set',
 };
 
 /** Stamp an object with the current version for its artifact. */

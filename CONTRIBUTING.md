@@ -25,8 +25,11 @@ Two more constraints worth knowing before you write code:
 ## Changing a persisted format
 
 Everything DocGov writes into `.docgov/` is a format other repositories now hold: config,
-registry, graph, suppressions, the fix plan, the checklist, the capability registry. Their
-versions live in one place, `core/schema.js`.
+registry, graph, suppressions, the fix plan, the checklist, the capability registry. So is
+everything it prints under `--json` — the findings report, the context pack, the health
+report, the rule set — because a skill, a hook or a CI job parses those, and a shape someone
+else's code parses is a contract whether or not it was ever saved to disk. Their versions
+live in one place, `core/schema.js`, and every one of them declares a `version`.
 
 Raise a version when a change would make an older DocGov **misread** the file — a renamed or
 retyped field, or one whose meaning changed. Do not raise it for an added optional field: an
@@ -39,6 +42,14 @@ a migration destroys somebody's repository.
 
 A file with no version at all predates the check. It is treated as version 1 and must keep
 working; rejecting it would break every repository that adopted DocGov before this existed.
+
+The rules are the same for both kinds, but only files can be enforced, because only files
+does DocGov read back — `config`, `registry`, `graph`, `suppressions` and the fix plan all
+pass through `schema.check()` before anything trusts their contents. For a `--json` output
+the reader is someone else's code, so all DocGov can do is declare which shape it produced,
+and the same discipline about when to raise the number is what makes that declaration worth
+reading. The field is `version`, not `schemaVersion`: it is what the files already in the
+wild say, and matching the data that exists is worth more than matching a nicer name.
 
 
 ## Development setup

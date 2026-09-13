@@ -262,9 +262,8 @@ function cmdReview() {
 
 function cmdFix() {
   const c = ctx();
-  const dataPath = path.join(c.root, onboardmod.PLAN_DATA_PATH);
-  if (!exists(dataPath)) throw new DocGovError('no fix plan found. Run `docgov review` first.');
-  const planData = JSON.parse(read(dataPath));
+  const planData = onboardmod.loadPlan(c.root);
+  if (!planData) throw new DocGovError('no fix plan found. Run `docgov review` first.');
   const dryRun = flags.dry_run === true || flags.dry === true;
   const include = list(flags.include);
   const skip = flags.skip ? list(flags.skip) : [];
@@ -540,9 +539,10 @@ function cmdCheck() {
   const stats = checkmod.summarize(split.active);
 
   if (JSONOUT) {
-    emit({ exitCode: code, stats, findings: split.active, suppressed: split.suppressed.length,
+    emit(schemamod.stamp('findings', {
+      exitCode: code, stats, findings: split.active, suppressed: split.suppressed.length,
       expiredSuppressions: split.expired, drift: driftSplit.active, unusedSuppressions: split.unused,
-      scanSkipped: c.inv?.scanSkipped || [] });
+      scanSkipped: c.inv?.scanSkipped || [] }));
     return code;
   }
 
@@ -623,8 +623,9 @@ function cmdStale() {
   const stale = flags.no_staleness === true ? [] : staleness({ root: c.root, cfg: c.cfg, docs: c.docs, graph: c.graph });
 
   if (JSONOUT) {
-    emit({ ...res, findings: split.active, suppressed: split.suppressed, staleness: stale,
-      packets: driftmod.reviewPackets({ root: c.root, findings: split.active, base }) });
+    emit(schemamod.stamp('findings', { ...res, findings: split.active, suppressed: split.suppressed,
+      staleness: stale,
+      packets: driftmod.reviewPackets({ root: c.root, findings: split.active, base }) }));
     return split.active.some((f) => ['critical', 'high'].includes(f.severity)) ? EXIT.REVIEW : EXIT.OK;
   }
 
@@ -697,11 +698,11 @@ function cmdChecklist() {
   if (flags.pr === true) {
     const drift = driftmod.analyze({ root: c.root, cfg: c.cfg, docs: c.docs, graph: c.graph, base });
     const report = impactmod.prReport(res, drift, c.cfg);
-    if (JSONOUT) return emit({ checklist: m, pr: report }) ?? (report.blocked ? EXIT.REVIEW : EXIT.OK);
+    if (JSONOUT) return emit(schemamod.stamp('checklist', { checklist: m, pr: report })) ?? (report.blocked ? EXIT.REVIEW : EXIT.OK);
     say(report.text);
     return report.blocked ? EXIT.REVIEW : EXIT.OK;
   }
-  if (JSONOUT) return emit(m) ?? EXIT.OK;
+  if (JSONOUT) return emit(schemamod.stamp('checklist', m)) ?? EXIT.OK;
   say(yaml.stringify(m).trimEnd());
   say('');
   say(`Written to ${path.relative(c.root, out)} — delete it after merge.`);
@@ -727,9 +728,9 @@ function cmdBrief() {
   const text = ctxpack.render(compiled);
 
   if (JSONOUT) {
-    return emit({ topic, pack: text, map: compiled.map,
+    return emit(schemamod.stamp('brief', { topic, pack: text, map: compiled.map,
       selected: compiled.selected.map((x) => ({ id: x.doc.id, path: x.doc.path, why: x.why })),
-      decisions: compiled.decisions }) ?? EXIT.OK;
+      decisions: compiled.decisions })) ?? EXIT.OK;
   }
   // The pack itself is the only thing on stdout by default: the skill injects stdout verbatim
   // (and merges stderr into it), so anything else printed here is tokens an agent pays for
@@ -767,7 +768,7 @@ function cmdHealth() {
   const { findings } = checkmod.run(c);
   const stale = staleness({ root: c.root, cfg: c.cfg, docs: c.docs, graph: c.graph });
   const h = healthmod.health({ cfg: c.cfg, docs: c.docs, inv: c.inv, graph: c.graph, registry: c.registry, findings, stale });
-  if (JSONOUT) return emit(h) ?? EXIT.OK;
+  if (JSONOUT) return emit(schemamod.stamp('health', h)) ?? EXIT.OK;
   say(`Documentation Health: ${h.overall}/100`);
   say('');
   for (const [k, v] of Object.entries(h.components)) say(`  ${k.padEnd(20)} ${String(v).padStart(3)}`);
@@ -869,12 +870,12 @@ function cmdRules() {
   const set = invariantsmod.collect(c.docs, c.cfg);
   if (flags.for) {
     const applicable = invariantsmod.applicable(set, list(flags.for), c.cfg);
-    if (JSONOUT) return emit(applicable) ?? EXIT.OK;
+    if (JSONOUT) return emit(schemamod.stamp('rules', applicable)) ?? EXIT.OK;
     const rendered = invariantsmod.render(applicable);
     if (rendered) say(rendered); else say('No rules apply to those paths.');
     return EXIT.OK;
   }
-  if (JSONOUT) return emit(set) ?? EXIT.OK;
+  if (JSONOUT) return emit(schemamod.stamp('rules', set)) ?? EXIT.OK;
   if (!set.invariants.length) {
     say('No rules declared.');
     say('');
@@ -954,10 +955,7 @@ function cmdInspect() {
   const base = flags.base ? String(flags.base) : 'HEAD';
   const what = flags._[0] || 'stale';
   if (what === 'contradictions') {
-    const planPath = path.join(c.root, onboardmod.PLAN_DATA_PATH);
-    const pairs = exists(planPath)
-      ? JSON.parse(read(planPath)).contradictionCandidates
-      : onboardmod.plan(c).contradictionCandidates;
+    const pairs = (onboardmod.loadPlan(c.root) || onboardmod.plan(c)).contradictionCandidates;
     const packets = pairs.slice(0, parseInt(flags.limit || '10', 10)).map((p) => ({
       pair: [p.a, p.b], score: p.score, note: p.note,
       a: excerpt(c.docs.find((d) => d.path === p.a)), b: excerpt(c.docs.find((d) => d.path === p.b)),

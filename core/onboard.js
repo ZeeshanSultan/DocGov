@@ -8,7 +8,7 @@ import { assess, readmeOverreach, splitCandidates } from './size.js';
 import { brokenLinks } from './links.js';
 import { primaryAuthor, isRepo, isClean, lastCommitDate } from './git.js';
 import { locationFor } from './config.js';
-import { matchAny, table, plural, exists } from './util.js';
+import { matchAny, table, plural, exists, read, DocGovError } from './util.js';
 
 /**
  * Existing-project review (PRD §15, §44).
@@ -21,6 +21,26 @@ import { matchAny, table, plural, exists } from './util.js';
 
 export const PLAN_PATH = '.docgov/fix-plan.md';
 export const PLAN_DATA_PATH = '.docgov/fix-plan.json';
+
+/**
+ * Read back the plan `review` wrote, checking its version before anything acts on it.
+ *
+ * The plan is the one artifact DocGov both writes and reads, and it is the one whose
+ * misreading actually moves files. It has declared `version` since before the field was
+ * enforced anywhere — and nothing looked at it, so a plan from a newer DocGov would have
+ * been executed on a guess. Both readers (`fix` and `inspect contradictions`) route through
+ * here so neither can skip the check.
+ *
+ * @returns {object|null} the plan, or null if none has been written yet
+ */
+export function loadPlan(root) {
+  const file = path.join(root, PLAN_DATA_PATH);
+  if (!exists(file)) return null;
+  let data;
+  try { data = JSON.parse(read(file)); }
+  catch (e) { throw new DocGovError(`${PLAN_DATA_PATH} is not valid JSON: ${e.message}. Run \`docgov review\` to rewrite it.`); }
+  return schema.check('plan', data, PLAN_DATA_PATH);
+}
 
 /**
  * @param {{root:string, cfg:object, docs:any[], inv:object, graph:any, registry:object}} ctx

@@ -305,6 +305,34 @@ docgov ignore --remove DRIFT-20828
 **Writes:** `.docgov/suppressions.yaml`. Suppressed findings stay visible in `ignore list` and
 in every report. Expired ones get their own section in `check`. Nothing disappears quietly.
 
+### `docgov judge --file <verdicts.json>`
+
+Record what a model concluded. This is the only door a semantic finding comes through, and it
+is deliberately not the door deterministic findings use.
+
+```bash
+docgov judge --file verdicts.json --agent quality-reviewer
+docgov judge --file - --agent drift-reviewer < verdict.json   # what an agent actually does
+docgov judge --clear [--agent NAME]
+```
+
+Each verdict needs `check`, `path`, `message`, `confidence` (`low`/`medium`/`high`, or a number
+from 0 to 1) and `evidence` — a non-empty list of what was actually read. The last two are the
+point: a verdict with neither is an assertion, and DocGov refuses it rather than storing it.
+
+What DocGov does with them is fixed and not up to the sender. `deterministic: false`,
+`blocking: false` and `source: "model"` are set on write and re-applied on read — an agent
+cannot mark its own opinion as a rule, even by writing the file by hand. They print in their
+own JUDGEMENT section in `check`, they are a separate `judgements` array in `check --json`
+rather than entries in `findings`, and they never change an exit code.
+
+A second run of the same agent on the same document replaces its earlier verdict rather than
+stacking another one beside it.
+
+**Writes:** `.docgov/judgements.json` — committed, like suppressions and unlike the transient
+artifacts. A recorded dismissal is how the next run avoids re-litigating a finding somebody
+already looked at, and that only works if it survives the branch.
+
 ### `docgov publish`
 
 What's safe to publish externally and what would leak. Scans for internal hostnames, private

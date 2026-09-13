@@ -56,3 +56,22 @@ actually is.
 
 Findings ordered by what you would fix first, each with the file, the line or section, and
 the concrete edit. No scores without reasons. No praise padding.
+
+## Record them, so they survive the session
+
+```bash
+docgov judge --file - --agent inspect <<'JSON'
+[{"check": "contradiction",
+  "path": "docs/getting-started.md",
+  "severity": "high",
+  "message": "States a 7-day trial; docs/product/PRD.md states 14",
+  "confidence": "high",
+  "evidence": ["docs/getting-started.md:31", "docs/product/PRD.md:88"]}]
+JSON
+```
+
+`confidence` and `evidence` are both required — `evidence` is the quotes this skill already
+tells you to include, and a verdict without them is rejected rather than stored. DocGov keeps
+these as model-derived: `docgov check` prints them under JUDGEMENT, `--json` carries
+`deterministic: false`, and they never change an exit code. Nothing you conclude here can
+block anyone, which is what makes it safe to conclude it.

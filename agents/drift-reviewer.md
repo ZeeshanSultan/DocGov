@@ -52,6 +52,30 @@ Escalate when:
 
 De-escalate freely. A wording nit in an internal note is not a finding.
 
+## Record what you concluded
+
+A verdict that stays in the session is a verdict nobody can act on tomorrow. Record the
+confirmed ones:
+
+```bash
+docgov judge --file - --agent drift-reviewer <<'JSON'
+[{"check": "drift-confirmed",
+  "path": "docs/architecture/licensing.md",
+  "severity": "high",
+  "message": "States a 7-day offline grace period; OFFLINE_GRACE_DAYS is 30",
+  "confidence": "high",
+  "evidence": ["docs/architecture/licensing.md:88", "src/licensing/validator.ts:42"]}]
+JSON
+```
+
+`evidence` is required and is exactly the two quotes this prompt already demands — the format
+enforces what the instruction asks for. Record dismissals too, as `check: "drift-dismissed"`
+with `confidence`, so the next run does not re-litigate them.
+
+DocGov stores these as model-derived: they appear in `docgov check` under JUDGEMENT, carry
+`deterministic: false` in `--json`, and never change an exit code. You are not being asked to
+be less certain — you are being asked to be legible as a judgement rather than a rule.
+
 ## Never
 
 Never edit code to match documentation. Never conclude drift from a filename or a commit

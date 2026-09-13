@@ -966,6 +966,51 @@ test('plugin: session_briefing=false suppresses the session briefing', () => {
   assert.doesNotMatch(off, /DocGov is active/, 'and off when the option says so');
 });
 
+test('cli: TOML or JSON frontmatter is never overwritten with a YAML block', () => {
+  // Hugo accepts TOML (+++) and JSON frontmatter. DocGov's fence only matches YAML, so such
+  // a document looked like one with no frontmatter and got a YAML block prepended *above*
+  // the real one — Hugo then reads the injected block and renders the original as body
+  // text, losing the page's title, weight and draft status.
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  wf(dir, 'site/config.toml', 'baseURL = "/"\n');
+  const original = '+++\ntitle = "CHW-1001"\nweight = 1001\ndraft = false\n+++\n\n# Body\n';
+  wf(dir, 'site/content/errors/CHW-1001.md', original);
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  cli(dir, ['review']);
+  commit(dir);
+  const r = cli(dir, ['fix', '--no-branch']);
+  assert.equal(r.code, 0, 'the run completes');
+  assert.equal(fs.readFileSync(path.join(dir, 'site/content/errors/CHW-1001.md'), 'utf8'), original,
+    'the page must be byte-identical');
+  assert.match(r.out, /TOML frontmatter/, 'and must say why it was left alone');
+});
+
+test('cli: a scan that could not see everything says so', () => {
+  // "no findings" has to mean the intended scope was inspected. A directory too deep, one
+  // that cannot be read, and a symlink that is not followed all used to vanish silently,
+  // and silence is indistinguishable from compliance.
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  const deep = path.join(dir, 'docs', ...Array(13).fill('x'));
+  fs.mkdirSync(deep, { recursive: true });
+  fs.writeFileSync(path.join(deep, 'buried.md'), '# Buried\n');
+  fs.mkdirSync(path.join(dir, 'other'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'other', 'real.md'), '# Real\n');
+  fs.symlinkSync(path.join(dir, 'other', 'real.md'), path.join(dir, 'docs', 'linked.md'));
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+
+  const r = cli(dir, ['check']);
+  assert.match(r.out, /Scan incomplete/, 'the report must admit it');
+  assert.match(r.out, /scan limit|symlink/, 'and name a reason');
+
+  const j = JSON.parse(cli(dir, ['check', '--json']).out);
+  assert.ok(Array.isArray(j.scanSkipped) && j.scanSkipped.length >= 1,
+    'and CI must be able to see it too');
+});
+
 test('cli: a plan may not move a document outside the repository', () => {
   // The plan is an editable file — a human resolves collisions in it — so anything that can
   // write it can choose where a document lands. The boundary used to be held only by

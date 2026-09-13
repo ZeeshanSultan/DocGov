@@ -44,6 +44,10 @@ commit real files, and run the real binary as a subprocess.
 - **Every template against its own gate.** The test *every document class produces a document
   that satisfies its own gate* is what keeps every class honest — adding a class with mismatched
   sections fails immediately.
+- **That a page with TOML or JSON frontmatter comes out byte-identical**, and is named as
+  left alone rather than silently skipped.
+- **That a scan which could not see everything says so**, in both the human output and
+  `--json`, whether or not there were findings.
 - **That a hand-edited plan cannot escape the repository**, by relative traversal, an absolute
   path, or a normalised `docs/../../` — with and without git.
 - **That every option the plugin advertises changes behaviour**, and that only options it can

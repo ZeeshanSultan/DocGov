@@ -41,7 +41,8 @@ const SITE_CONFIG_FILES = ['config.toml', 'hugo.toml', 'hugo.yaml', 'hugo.json',
  * @param {object} cfg
  */
 export function inventory(root, cfg) {
-  const all = walk(root);
+  const scanSkipped = [];
+  const all = walk(root, { skipped: scanSkipped });
   const include = cfg.documentation.include || ['**/*.md'];
   const exclude = cfg.documentation.exclude || [];
 
@@ -89,6 +90,7 @@ export function inventory(root, cfg) {
 
   return {
     siteRoots,
+    scanSkipped,
     root, all, documents, contracts, stack, manifests, agentInstructions, codePaths,
     counts: {
       files: all.length, documents: documents.length, contracts: contracts.length,

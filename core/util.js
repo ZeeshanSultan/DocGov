@@ -33,12 +33,18 @@ const SKIP_DIRS = new Set([
  * @param {{match?:(rel:string)=>boolean, maxDepth?:number, includeDirs?:boolean}} [opts]
  */
 export function walk(root, opts = {}) {
-  const { match = () => true, maxDepth = 12, includeDirs = false } = opts;
+  const { match = () => true, maxDepth = 12, includeDirs = false, skipped = null } = opts;
   const out = [];
+  // Anything the sweep could not look at is recorded rather than dropped. A governance
+  // result that says "no findings" has to mean the intended scope was inspected: a
+  // directory too deep to reach, one that could not be read, or a symlink that is not
+  // followed all used to vanish silently, and silence looked exactly like compliance.
+  const note = (rel, reason) => { if (skipped) skipped.push({ path: rel, reason }); };
   const rec = (dir, depth) => {
-    if (depth > maxDepth) return;
+    if (depth > maxDepth) { note(toPosix(path.relative(root, dir)), `deeper than the ${maxDepth}-level scan limit`); return; }
     let entries;
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
+    catch (e) { note(toPosix(path.relative(root, dir)), `could not be read (${e.code || e.message})`); return; }
     for (const e of entries) {
       if (e.name.startsWith('.') && e.name !== '.github' && e.name !== '.claude') continue;
       if (SKIP_DIRS.has(e.name)) continue;
@@ -48,6 +54,7 @@ export function walk(root, opts = {}) {
         if (includeDirs && match(rel)) out.push(rel);
         rec(abs, depth + 1);
       } else if (e.isFile() && match(rel)) out.push(rel);
+      else if (e.isSymbolicLink() && match(rel)) note(rel, 'a symlink, which DocGov does not follow');
     }
   };
   rec(root, 0);

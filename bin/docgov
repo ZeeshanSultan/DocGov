@@ -484,12 +484,14 @@ function cmdCheck() {
 
   if (JSONOUT) {
     emit({ exitCode: code, stats, findings: split.active, suppressed: split.suppressed.length,
-      expiredSuppressions: split.expired, drift: driftSplit.active, unusedSuppressions: split.unused });
+      expiredSuppressions: split.expired, drift: driftSplit.active, unusedSuppressions: split.unused,
+      scanSkipped: c.inv?.scanSkipped || [] });
     return code;
   }
 
   if (!split.active.length && !driftSplit.active.length) {
     say(`✓ ${plural(c.docs.length, 'document')} checked, no findings.`);
+    reportIncompleteScan(c);
     if (split.suppressed.length) say(`  (${split.suppressed.length} suppressed)`);
     return code;
   }
@@ -522,6 +524,7 @@ function cmdCheck() {
     say(`EXPIRED SUPPRESSIONS (${split.expired.length}) — no longer suppressing:`);
     for (const f of split.expired) say(`  ${f.id}  expired ${f.suppression.expires}: ${f.suppression.reason}`);
   }
+  reportIncompleteScan(c);
   say('');
   say(`exit ${code}  ${code === 0 ? '(pass)' : code === 1 ? '(deterministic violation)' : '(drift requires review)'}`);
   return code;
@@ -531,6 +534,20 @@ function printFinding(f) {
   say(`  ${f.severity.padEnd(8)} ${f.check.padEnd(21)} ${f.path}`);
   say(`           ${f.message}`);
   if (f.fix) say(`           fix: ${f.fix}`);
+}
+
+/**
+ * A clean result has to mean the intended scope was inspected. Anything the sweep could not
+ * look at — too deep, unreadable, a symlink it does not follow — is said out loud, because
+ * otherwise silence is indistinguishable from compliance.
+ */
+function reportIncompleteScan(c) {
+  const skipped = c.inv?.scanSkipped || [];
+  if (!skipped.length) return;
+  say('');
+  say(`Scan incomplete — ${plural(skipped.length, 'path')} could not be inspected:`);
+  for (const s of skipped.slice(0, 10)) say(`  ${s.path || '(repository root)'} — ${s.reason}`);
+  if (skipped.length > 10) say(`  … and ${skipped.length - 10} more`);
 }
 
 function findingId(f) {

@@ -106,7 +106,10 @@ export function migrate({ root, cfg, docs, planData, dryRun = false, include = [
     // is one document, and aborting the run over it leaves every other document
     // ungoverned. `Document` already degrades this way: it records the error and carries
     // on. Two files out of 299 used to stop a whole repository's migration.
-    if (ann && d.error) {
+    if (ann && d.foreignFrontmatter) {
+      skipped.push({ path: d.path,
+        reason: `${d.foreignFrontmatter.toUpperCase()} frontmatter — DocGov writes YAML, and adding a block above it would replace what the site reads` });
+    } else if (ann && d.error) {
       skipped.push({ path: d.path, reason: d.error });
     } else if (ann) {
       const c = classify(d);

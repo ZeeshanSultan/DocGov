@@ -4,6 +4,21 @@ import { DocGovError } from './util.js';
 const FENCE = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(\r?\n|$)/;
 
 /**
+ * Frontmatter in a format this parser does not own. Hugo accepts TOML (`+++`) and JSON
+ * (`{`) as well as YAML, and a document may legitimately use either. DocGov writes YAML,
+ * and the fence above does not match those, so a document with TOML frontmatter looked
+ * like a document with none — and annotating it prepended a YAML block *above* the TOML.
+ * Hugo then reads the injected block as the frontmatter and renders the real one as body
+ * text, losing the page's title, weight and draft status.
+ * @returns {'toml'|'json'|null}
+ */
+export function foreignFence(source) {
+  if (/^\+\+\+[ \t]*\r?\n/.test(source)) return 'toml';
+  if (/^\{[ \t]*\r?\n/.test(source)) return 'json';
+  return null;
+}
+
+/**
  * @param {string} source
  * @returns {{data:object, body:string, raw:string|null, hasFrontmatter:boolean}}
  */
@@ -26,6 +41,10 @@ export function stringify(data, body) {
 
 /** Merge patch into a document's `docgov` block without touching other frontmatter keys. */
 export function patchDocgov(source, patch) {
+  const foreign = foreignFence(source);
+  if (foreign) throw new DocGovError(
+    `this document uses ${foreign.toUpperCase()} frontmatter, which DocGov does not write. `
+    + 'Adding a YAML block above it would replace the frontmatter the site actually reads.');
   const { data, body } = parse(source);
   const next = { ...data, docgov: { ...(data.docgov || {}), ...patch } };
   if (!('docgov' in data)) {

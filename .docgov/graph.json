@@ -11,8 +11,8 @@
       "domain": null,
       "status": "active",
       "kind": "document",
-      "lines": 125,
-      "hash": "9cb07f46f2eff022",
+      "lines": 185,
+      "hash": "929490cbd3f5d46d",
       "generated": false
     },
     {
@@ -50,8 +50,8 @@
       "domain": null,
       "status": "active",
       "kind": "document",
-      "lines": 134,
-      "hash": "f0217a3cfdff3641",
+      "lines": 144,
+      "hash": "0bd36e5fe8a62a3d",
       "generated": false
     },
     {
@@ -102,8 +102,8 @@
       "domain": null,
       "status": "active",
       "kind": "document",
-      "lines": 121,
-      "hash": "c97fb14f909287a2",
+      "lines": 123,
+      "hash": "6f392fb4f3c46bac",
       "generated": false
     },
     {
@@ -128,8 +128,8 @@
       "domain": null,
       "status": "active",
       "kind": "document",
-      "lines": 90,
-      "hash": "23a4b67a234bbf1e",
+      "lines": 99,
+      "hash": "592620c33edd1976",
       "generated": false
     },
     {
@@ -258,8 +258,8 @@
       "domain": null,
       "status": "active",
       "kind": "document",
-      "lines": 68,
-      "hash": "731f39a8306f95b4",
+      "lines": 72,
+      "hash": "5bfdc7cc098fee7f",
       "generated": false
     },
     {
@@ -285,7 +285,7 @@
       "status": "active",
       "kind": "document",
       "lines": 375,
-      "hash": "3d6d956ab7835ce0",
+      "hash": "08c1c707bbebea18",
       "generated": false
     },
     {
@@ -551,6 +551,24 @@
       "from": "architecture-overview",
       "to": "commands",
       "rel": "depended_on_by",
+      "inferred": true
+    },
+    {
+      "from": "changelog",
+      "to": "docgov-vision",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "changelog",
+      "to": "docgov-roadmap",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "changelog",
+      "to": "prd-index",
+      "rel": "references",
       "inferred": true
     },
     {

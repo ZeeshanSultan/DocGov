@@ -7,8 +7,8 @@ documents:
     visibility: public
     title: Architecture
     owner: docgov
-    hash: c97fb14f909287a2
-    lines: 121
+    hash: 6f392fb4f3c46bac
+    lines: 123
     relationships:
       implements:
         - docgov-prd
@@ -22,8 +22,8 @@ documents:
     registered_in: config
     title: Changelog
     owner: docgov
-    hash: 9cb07f46f2eff022
-    lines: 125
+    hash: 929490cbd3f5d46d
+    lines: 185
   code-of-conduct:
     path: CODE_OF_CONDUCT.md
     type: governance.code-of-conduct
@@ -41,7 +41,7 @@ documents:
     visibility: public
     title: Commands
     owner: docgov
-    hash: 3d6d956ab7835ce0
+    hash: 08c1c707bbebea18
     lines: 375
     relationships:
       depends_on:
@@ -99,8 +99,8 @@ documents:
     visibility: internal
     title: "DocGov — roadmap"
     owner: docgov
-    hash: 731f39a8306f95b4
-    lines: 68
+    hash: 5bfdc7cc098fee7f
+    lines: 72
     relationships:
       depends_on:
         - docgov-prd
@@ -232,8 +232,8 @@ documents:
     registered_in: config
     title: DocGov
     owner: docgov
-    hash: f0217a3cfdff3641
-    lines: 134
+    hash: 0bd36e5fe8a62a3d
+    lines: 144
   schemas-config:
     path: schemas/config.json
     type: contract.schema
@@ -263,8 +263,8 @@ documents:
     visibility: public
     title: Testing strategy
     owner: docgov
-    hash: 23a4b67a234bbf1e
-    lines: 90
+    hash: 592620c33edd1976
+    lines: 99
     relationships:
       depends_on:
         - development

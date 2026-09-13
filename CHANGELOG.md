@@ -13,6 +13,33 @@ with a migration note.
 
 Nothing yet.
 
+## [0.2.1] — 2026-09-13
+
+Everything here was found after 0.2.0 was published, by testing the Node 20 lower bound
+`package.json` has always declared.
+
+### Fixed
+
+- **`--json` output over 8 KB was silently truncated on Node 20.** The CLI called
+  `process.exit()`, which discards asynchronous stdout writes that have not flushed — so
+  piping anything larger than the pipe buffer, `docgov types --json` included, produced JSON
+  that ended mid-string. It now sets `process.exitCode` and lets Node exit once stdout has
+  drained. It reproduced on Node 20 and never on 22.
+- **The Reference class could not be used for a hand-written document.** Marking a class
+  `generated: true` made `create` stamp `generation.mode: generated`, which the blocking
+  `generated-edit` check then guarded — so a CLI reference or a hand-written configuration
+  reference had nowhere to live. Generation is now a property of a document, declared in its
+  frontmatter; generated *paths* remain the real guard, and both still block correctly.
+
+### Added
+
+- **CI tests Node 20 as well as 22**, in a job separate from the one that comments on pull
+  requests, so a matrix cannot race `gh pr comment --edit-last`. It paid for itself on the
+  first run.
+- **`examples/demo.sh`** — builds a deliberately messy repository and runs `setup`, `review`,
+  `health` and `fix --dry-run` against it. A real run, nothing pre-baked.
+- The taxonomy is 59 document classes, not 57; the count was stale in six places.
+
 ## [0.2.0] — 2026-09-13
 
 ### Changed

@@ -22,17 +22,24 @@ DocGov review
 Finding                        Count
 -----------------------------  -----
 unclassified                   3
-low-confidence classification  1
 moves proposed                 1
 frontmatter to add             5
-suspected duplicates           0
-missing documents              2
+suspected duplicates           1
+missing documents              1
+broken internal links          0
 
 Plan written to .docgov/fix-plan.md — nothing has changed.
 4 of 11 actions need a judgement call.
 
 Read the plan, delete anything you disagree with, then: docgov fix --dry-run
 ```
+
+That duplicate pair is two API docs at 91% overlap that disagree about whether tokens
+expire and whether charges retry three times or five. DocGov won't merge prose on its own —
+it narrows the candidates and hands them to you.
+
+**Try it on a repo that isn't yours:** `./examples/demo.sh` builds a deliberately messy
+repository and runs the whole flow against it. Real run, nothing pre-baked, about 30 seconds.
 
 Nothing moved. It wrote you a plan. You read it, delete the parts you disagree with, and run
 `docgov fix` — which works on a branch and reverts itself if anything fails to verify.
@@ -81,7 +88,7 @@ Every command takes `--json`. Full list: **[docs/reference/commands.md](docs/ref
 
 | | |
 |---|---|
-| **Knows what a document is** | 57 document classes. Each one has a place it belongs, sections it must have, and a size past which it stops being that kind of document. Point it at a file and it'll tell you what you wrote. |
+| **Knows what a document is** | 59 document classes. Each one has a place it belongs, sections it must have, and a size past which it stops being that kind of document. Point it at a file and it'll tell you what you wrote. |
 | **Knows which docs outrank which** | Your spec beats the tutorial that paraphrases it. A README can't quietly contradict an ADR. When two documents disagree, there's a defined answer for which one is wrong. |
 | **Hands your agent the rules** | Write `INV-LIC-001 A license belongs to exactly one organization.` in a spec, map it to the code it governs, and every agent that touches that code gets the rule before it writes a line. Cheapest useful thing in here. |
 | **Notices when docs go stale** | Code moved and the doc didn't. Spec moved and the code didn't. Your OpenAPI file is ahead of the page describing it. Scored by what changed *around* a document, not by how old it is. |

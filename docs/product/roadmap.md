@@ -32,6 +32,7 @@ Shipped in 0.1.0 and working:
 - Context packs, authority-ordered search, documentation health scoring.
 - The publishing gate, capability discovery, and organizational policy packs.
 - Published to npm as `docgov-cli`; the binary it installs is still `docgov`.
+- A runnable demo (`examples/demo.sh`) and a documented command reference.
 
 Everything the specification called V2 — drift, impact, reverse drift, context packs, quality
 scoring, invariant enforcement, PR review — is in this list.
@@ -40,10 +41,13 @@ scoring, invariant enforcement, PR review — is in this list.
 
 The gate for 1.0:
 
-- Give a hand-written reference document somewhere in the taxonomy to live. The only Reference
-  class is currently forced to `generated`.
-- Test on Node 20 in CI, which is what `package.json` promises.
-- A recorded demonstration of `review` then `fix` on a genuinely messy repository.
+Nothing blocking. The gate items are closed: the taxonomy has a home for a hand-written
+reference, CI tests the Node 20 lower bound `package.json` declares, and
+[`examples/demo.sh`](../../examples/demo.sh) runs the whole flow against a deliberately messy
+repository.
+
+What is left is judgement rather than work: whether 1.0 should wait for the tool to be used on
+a repository nobody here owns.
 
 ## Later
 

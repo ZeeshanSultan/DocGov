@@ -122,7 +122,7 @@ docgov create user.guide "Deploying" --domain platform
 
 Flags: `--domain`, `--path`, `--id`, `--owner`, `--visibility`, `--implements`, `--supersedes`, `--force`.
 
-Run `docgov types` to see all 57 classes before deciding yours isn't one of them.
+Run `docgov types` to see all 59 classes before deciding yours isn't one of them.
 
 ### `docgov check`
 
@@ -296,7 +296,7 @@ artifact, not a redacted copy.
 
 ### `docgov types [filter]`
 
-All 57 document classes: authority, review lens, size limits, required section count. Filter
+All 59 document classes: authority, review lens, size limits, required section count. Filter
 by type id or authority.
 
 ```bash

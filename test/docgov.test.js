@@ -733,6 +733,17 @@ test('cli: every command accepts --json and emits parseable JSON', () => {
   }
 });
 
+test('cli: JSON larger than the pipe buffer is not truncated on exit', () => {
+  // process.exit() discards unflushed async writes when stdout is a pipe, which silently
+  // truncated any output past the 8 KB buffer on Node 20. `types --json` is well past it.
+  const dir = tmpRepo();
+  commit(dir);
+  const r = cli(dir, ['types', '--json']);
+  assert.ok(r.out.length > 8192, `output must exceed the pipe buffer to be a real test, got ${r.out.length} bytes`);
+  const parsed = JSON.parse(r.out);
+  assert.ok(Array.isArray(parsed) && parsed.length > 50, 'every document class must survive the pipe');
+});
+
 test('cli: hook pre-tool denies a generated-tree edit and injects invariants for code', () => {
   const dir = tmpRepo();
   wf(dir, 'src/licensing/v.ts', 'const A = 1;\n');

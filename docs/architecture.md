@@ -110,6 +110,8 @@ review packets with the diff hunks attached → an agent reads kilobytes instead
 | Narrow, then ask | Contradiction detection across 100 documents is ~5,000 model pairs. Local tf-idf gets to ~20 candidates first. |
 | Git is the audit log | No parallel history. Migration is revertible because git makes it so, which is the only honest basis for "without losing information". |
 | The graph decides relevance, not a file-extension list | A mapping lookup asks "does a document claim this path?", and the graph answers it. Gating that on a list of source extensions discarded every extensionless executable, shell script and Dockerfile a document had explicitly mapped — `bin/docgov` included, so the engine could not see changes to itself. Extension lists are for heuristics only, where a false negative is free. |
+| The CLI sets `process.exitCode`, never `process.exit()` | When stdout is a pipe its writes are asynchronous, and `process.exit()` discards whatever has not flushed — silently truncating any output past the 8 KB pipe buffer, which `types --json` exceeds. Letting Node exit on its own drains stdout first. The exit code is the contract; killing the process early breaks the output that carries it. |
+| Generation is a property of a document, not of its class | Marking a whole class generated made `create` stamp `generation.mode: generated`, which the `generated-edit` check then blocked — so the Reference class could not be used for the hand-written case at all. Generated *paths* remain the real guard. |
 | Policy packs, not a service | Organizational governance ships as git-distributed config. A backend would contradict the local-first promise. |
 
 ## Where to go next

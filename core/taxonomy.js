@@ -259,7 +259,8 @@ export const TYPES = {
     label: 'Configuration Reference', authority: 'generated', lens: 'operations',
     full: 'docs/06-operations/configuration/', compact: 'docs/operations/', soft: 600, hard: 1200,
     quality: 80, visibility: 'internal', template: 'tier3/configuration',
-    sections: ['Settings'], generated: true,
+    // Same reasoning as user.reference: a configuration reference is frequently hand-written.
+    sections: ['Settings'],
   },
   'operations.observability': {
     label: 'Observability', authority: 'canonical', lens: 'operations',
@@ -354,7 +355,14 @@ export const TYPES = {
   'user.reference': {
     label: 'Reference', authority: 'generated', lens: 'developer',
     full: 'docs/08-user/reference/', compact: 'docs/reference/', soft: 1000, hard: 3000,
-    quality: 80, visibility: 'public', template: 'tier3/reference', generated: true,
+    quality: 80, visibility: 'public', template: 'tier3/reference',
+    // Deliberately not `generated: true`. A reference is as often hand-written (a CLI
+    // command reference, a glossary) as generated from a schema, and marking the class
+    // generated made `create` stamp generation.mode: generated, which the generated-edit
+    // check then blocked — so the class could not be used for the hand-written case at all.
+    // Generation is a property of a document, not of its class: declare
+    // `generation.mode: generated` in frontmatter, or put it under a generated path, which
+    // is the stronger guard and the one that actually enforces.
     sections: [],
   },
 

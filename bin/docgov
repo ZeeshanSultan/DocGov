@@ -111,19 +111,29 @@ const COMMANDS = {
   help: usage,
 };
 
+// Set process.exitCode rather than calling process.exit(). When stdout is a pipe, writes
+// are asynchronous, and process.exit() discards whatever has not flushed yet — which
+// truncated any output over the pipe buffer (8 KB) on Node 20. `docgov types --json` is
+// larger than that, so piping it produced JSON that ended mid-string. Node exits with this
+// code on its own once the event loop drains, which is after stdout has flushed.
 try {
   const fn = COMMANDS[cmd];
-  if (!fn) { usage(); process.exit(cmd ? EXIT.CONFIG : EXIT.OK); }
-  process.exit(fn() ?? EXIT.OK);
+  if (!fn) {
+    usage();
+    process.exitCode = cmd ? EXIT.CONFIG : EXIT.OK;
+  } else {
+    process.exitCode = fn() ?? EXIT.OK;
+  }
 } catch (e) {
   if (e instanceof DocGovError) {
     if (JSONOUT) console.log(JSON.stringify({ error: e.message }));
     else console.error(`docgov: ${e.message}`);
-    process.exit(e.code ?? EXIT.CONFIG);
+    process.exitCode = e.code ?? EXIT.CONFIG;
+  } else {
+    if (JSONOUT) console.log(JSON.stringify({ error: String(e.message || e) }));
+    else console.error(`docgov: unexpected error: ${e.stack || e}`);
+    process.exitCode = EXIT.CONFIG;
   }
-  if (JSONOUT) console.log(JSON.stringify({ error: String(e.message || e) }));
-  else console.error(`docgov: unexpected error: ${e.stack || e}`);
-  process.exit(EXIT.CONFIG);
 }
 
 // ───────────────────────────── commands ─────────────────────────────

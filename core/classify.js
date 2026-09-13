@@ -20,6 +20,8 @@ const NAME_SIGNALS = [
   [/^changelog/i, 'release.changelog', 100],
   [/^(claude|agents|gemini)\.mdx?$|^\.(cursorrules|windsurfrules)$|^copilot-instructions\.mdx?$/i, 'agent.instructions', 100],
   [/^code_of_conduct/i, 'governance.code-of-conduct', 95],
+  [/^(third[-_ ]?party[-_ ]?notices?|notices?|attributions?|credits)\.mdx?$/i,
+    'governance.attribution', 95],
   [/^license/i, 'governance.policy', 30],
   [/^product\.mdx?$/i, 'constitution.product', 90],
   [/^principles?\.mdx?$/i, 'constitution.principles', 90],
@@ -127,7 +129,9 @@ const CONTENT_SIGNALS = [
   [/\b(personas?|user stor(y|ies))\b/i, 'product.prd', 15],
   [/\b(rollback|rollout)\b.*\n[\s\S]*\b(observability|migration)\b/i, 'architecture.trd', 30],
   [/\b(RPO|RTO)\b/, 'operations.disaster-recovery', 50],
-  [/\b(escalat|pager|severity|SEV-?\d)\b/i, 'operations.runbook', 30],
+  // Not \b: a hyphen is a word boundary, so `\bpager\b` matched the dependency
+  // `memory-pager` in a third-party licence table and classified it as a runbook.
+  [/(?<![\w-])(escalat\w*|pager|severity|SEV-?\d)(?![\w-])/i, 'operations.runbook', 30],
   [/^\s*#+\s*(trigger|diagnostics|procedure)\s*$/im, 'operations.runbook', 45],
   [/\binvariant\b/i, 'constitution.invariants', 25],
   [/^\s*\|?\s*term\s*\|/im, 'constitution.glossary', 40],

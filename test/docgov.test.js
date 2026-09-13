@@ -185,6 +185,31 @@ test('classifier: a singleton class only wins at its canonical path', () => {
     'docs/guides/README.md', 'an index belongs to its own directory and must never be relocated');
 });
 
+test('classifier: attribution notices are a class, and they stay at the root', () => {
+  // Unclassified, THIRD-PARTY-NOTICES.md was proposed for docs/10-internal/ — hiding a
+  // public legal notice and marking it internal. The filename varies by ecosystem.
+  const body = '# Notices\n\n| memory-pager | 1.5.0 | MIT |\n';
+  for (const f of ['THIRD-PARTY-NOTICES.md', 'NOTICE.md', 'ATTRIBUTIONS.md', 'CREDITS.md']) {
+    const { type } = classify({ path: f, body, frontmatter: {} });
+    assert.equal(type, 'governance.attribution', `${f} must classify as an attribution notice`);
+    assert.equal(destinationFor({ project: { layout: 'full' } }, type, f), f, `${f} must stay put`);
+  }
+  assert.notEqual(classify({ path: 'docs/notes.md', body, frontmatter: {} }).type,
+    'governance.attribution', 'the signal must not swallow an ordinary note');
+});
+
+test('classifier: a hyphenated dependency name does not read as a runbook signal', () => {
+  // `\bpager\b` matched `memory-pager` in a third-party licence table — a hyphen is a
+  // word boundary — and proposed moving THIRD-PARTY-NOTICES.md into docs/…/runbooks/.
+  const licences = '# Third-Party Notices\n\n| memory-pager | 1.5.0 | MIT |\n'
+    + '| node-severity-x | 2.0.0 | MIT |\n';
+  assert.notEqual(classify({ path: 'THIRD-PARTY-NOTICES.md', body: licences, frontmatter: {} }).type,
+    'operations.runbook', 'a licence table is not a runbook');
+  const runbook = '# On-call\n\nOn a SEV-1, escalate to the pager rota. Severity is assessed first.\n';
+  assert.equal(classify({ path: 'docs/ops/oncall.md', body: runbook, frontmatter: {} }).type,
+    'operations.runbook', 'a real runbook must still be recognised');
+});
+
 test('classifier: files other tools locate by path are never relocated by layout', () => {
   // GitHub reads README, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY and SUPPORT from the
   // repository root; Claude Code reads CLAUDE.md, Gemini CLI GEMINI.md, Copilot
@@ -377,6 +402,19 @@ test('links: a link to a directory, a dotfile or a source file is not broken', (
   const broken = brokenLinks([d], dir, new Set(['docs/a.md']));
   assert.deepEqual(broken.map((b) => b.target), ['../core/nope.go'],
     'only the target that genuinely does not exist may be reported');
+});
+
+test('links: a target that climbs out of the repository is not an internal link', () => {
+  // GitHub documents the private-vulnerability-reporting link as
+  // `[report](../../security/advisories/new)` in a root SECURITY.md, and resolves it
+  // against the repository URL rather than the filesystem. There is nothing on disk to
+  // check it against, and it is not part of the graph, so it is not a broken link.
+  const body = '# S\n\n[report](../../security/advisories/new) [up](../outside.md) '
+    + '[ok](./real.md) [gone](./nope.md)\n';
+  const d = new Document('/tmp', 'SECURITY.md', body);
+  const broken = brokenLinks([d], '/tmp', new Set(['SECURITY.md', 'real.md']));
+  assert.deepEqual(broken.map((b) => b.target), ['./nope.md'],
+    'only the in-repository target that does not exist may be reported');
 });
 
 test('links: permalink and repo-root conventions resolve, genuinely missing ones do not', () => {

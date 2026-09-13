@@ -378,6 +378,19 @@ export const TYPES = {
     quality: 80, visibility: 'public', template: 'tier6/code-of-conduct',
     sections: ['What is expected', 'What is not acceptable', 'Scope', 'Reporting'],
   },
+  'governance.attribution': {
+    // NOTICE, THIRD-PARTY-NOTICES, ATTRIBUTIONS, CREDITS. Attribution files satisfy the
+    // notice requirement of the licences a project redistributes under, so they ship at
+    // the root where distributions and licence-compliance tooling look for them, and the
+    // exact filename varies by ecosystem. Left unclassified they were proposed for a move
+    // into docs/10-internal/ — which would both hide them and mark a public legal notice
+    // internal.
+    label: 'Third-Party Notices', authority: 'audience', lens: 'developer',
+    full: 'THIRD-PARTY-NOTICES.md', compact: 'THIRD-PARTY-NOTICES.md', anchored: true,
+    soft: 500, hard: 5000, quality: 60, visibility: 'public',
+    template: 'tier6/attribution',
+    sections: [],
+  },
   'governance.support': {
     label: 'Support Policy', authority: 'audience', lens: 'user',
     full: 'SUPPORT.md', compact: 'SUPPORT.md', singleton: true, soft: 200, hard: 400,

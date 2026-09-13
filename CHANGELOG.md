@@ -66,6 +66,21 @@ with a migration note.
   action carries its `tier` in the JSON. The old Risk table is gone — it was the same fact,
   said twice.
 
+- **Audience review and leak detection are two reviews, not one prompt.** They are different
+  questions with opposite false-positive tolerances — a wrong audience finding costs an
+  argument about prose, a missed leak publishes a secret — so they have separate prompts,
+  separate severities and separate switches: `review.audience` and `review.leak` in
+  `.docgov/config.yaml`. `review.audience` also takes a list of lenses, for a team that wants
+  its runbooks judged and no opinions about its READMEs.
+- **Audience review is judged by the document's own lens.** There is no general standard for
+  good documentation: a README is measured on a stranger getting running in five minutes, a
+  runbook on being executable at 3am by someone who did not write it. The engine picks the
+  lens from the class and hands over the lens document itself, so a finding names the standard
+  it was judged against and you can disagree with the standard rather than with the model.
+- **Leak detection runs deterministically in the write hook**, with no model involved, and on
+  edits as well as new files — a credential is just as published when pasted into a document
+  that already existed. `docgov doctor` reports which reviews are in force.
+
 - **A project can define its own document classes**, in `.docgov/config.yaml` or in a policy
   pack shared across an organization: id, label, authority, paths, required sections, limits,
   visibility. They classify, create, template and check exactly like the shipped ones, and

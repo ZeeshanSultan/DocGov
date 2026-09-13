@@ -9,6 +9,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import * as cfgmod from '../core/config.js';
 import * as reg from '../core/registry.js';
+import * as pubmod from '../core/publish.js';
+import * as lenses from '../core/lenses.js';
 import * as graphmod from '../core/graph.js';
 import * as checkmod from '../core/check.js';
 import * as impactmod from '../core/impact.js';
@@ -109,6 +111,23 @@ export function hookPreWrite(input) {
 
   const advisory = reasons.filter((r) => !r.blocking);
   const guidance = [];
+
+  // Leak detection, before anything about quality. It is a different question from audience
+  // fit and it runs on its own terms: deterministic patterns, no model, and it fires on an
+  // edit as well as a new file — a credential is just as published when it is pasted into a
+  // document that already existed. A match is never a claim that this *is* a secret, only
+  // that something shaped like one is about to be written down.
+  if (content && /\.mdx?$/.test(rel) && lenses.isEnabled(cfg, 'leak')) {
+    const found = pubmod.scan({ path: rel, body: content });
+    const hard = found.filter((f) => !f.soft);
+    if (hard.length) {
+      guidance.push(`DocGov (leak) ${rel}: ${hard.length} pattern(s) that look like something private.`);
+      for (const f of hard.slice(0, 5)) guidance.push(`  line ${f.line}: ${f.what} — ${f.sample}`);
+      guidance.push('  A match is not proof, and a clean scan is not proof of the opposite: it means');
+      guidance.push('  no known pattern matched. Check before this reaches anywhere public.');
+    }
+  }
+
   if (isNew && /\.mdx?$/.test(rel)) {
     const doc = { path: rel, body: content || '', frontmatter: {} };
     const c = classify(doc);
@@ -122,6 +141,17 @@ export function hookPreWrite(input) {
       guidance.push(`  Add frontmatter: docgov: { id, type: ${c.type}, authority: ${def.authority}, visibility: ${def.visibility} }`);
       const existing = Object.entries(registry.documents).filter(([, e]) => e.type === c.type);
       if (existing.length && def.singleton) guidance.push(`  ⚠ a ${def.label} already exists at ${existing[0][1].path} — update it instead of creating a second one`);
+
+      // The standard this document will be judged against, named and handed over. A README
+      // is judged on whether a stranger can get running in five minutes; a runbook on whether
+      // someone who did not write it can execute it at 3am. Telling the writer which of those
+      // applies, before it writes, is worth more than telling a reviewer afterwards.
+      const lens = lenses.lensFor(cfg, c.type);
+      if (lens.enabled && lens.text) {
+        guidance.push('');
+        guidance.push(`The standard for a ${def.label}: ${lens.question}`);
+        guidance.push(lens.text.trim());
+      }
     } else {
       guidance.push(`DocGov: could not classify ${rel}. Run \`docgov whatis --path ${rel}\` or declare docgov.type explicitly.`);
     }

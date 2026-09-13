@@ -76,6 +76,11 @@ export function defaults() {
       // path -> the same keys a `docgov:` block would hold.
       registrations: {},
     },
+    // The two model reviews, configured separately because they are different questions.
+    // Audience fit is a quality judgement where a false positive costs an argument about
+    // prose; leak detection is a security question where a false positive costs ten seconds
+    // and a false negative publishes a secret. `audience` also accepts a list of lenses.
+    review: { audience: true, leak: true },
     governance: {
       canonical_changes_require_review: true,
       prevent_duplicate_domains: true,

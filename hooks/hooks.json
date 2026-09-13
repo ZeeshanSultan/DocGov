@@ -5,20 +5,29 @@
         "hooks": [
           {
             "type": "command",
-            "args": ["node", "${CLAUDE_PLUGIN_ROOT}/bin/docgov", "hook", "session-start"],
+            "args": [
+              "node",
+              "${CLAUDE_PLUGIN_ROOT}/bin/docgov",
+              "hook",
+              "session-start"
+            ],
             "timeout": 10
           }
         ]
       }
     ],
-
     "PreToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
-            "args": ["node", "${CLAUDE_PLUGIN_ROOT}/bin/docgov", "hook", "pre-tool"],
+            "args": [
+              "node",
+              "${CLAUDE_PLUGIN_ROOT}/bin/docgov",
+              "hook",
+              "pre-tool"
+            ],
             "timeout": 15
           }
         ]
@@ -31,31 +40,51 @@
             "if": "Write(**/*.md)",
             "timeout": 20,
             "continueOnBlock": true,
-            "prompt": "You are a documentation lens reviewer for a single file write. The tool input contains `file_path` and `content`.\n\nJudge ONLY these two things, which are decidable from the content and path alone. Everything structural is already enforced deterministically elsewhere — do not repeat it.\n\n1. AUDIENCE LENS MISMATCH. Does the content match the audience its location implies?\n   - a README, getting-started, tutorial or anything under a `user/`, `public/` or `08-user/` path must be task-oriented for its reader: no internal implementation dumps, no architecture essays, no unexplained internal jargon.\n   - anything under an `architecture/`, `03-architecture/` or `domains/` path must describe boundaries, responsibilities, data flows and trade-offs — not installation steps or tutorials.\n   - a runbook must be executable under pressure: numbered steps with expected results, not prose.\n\n2. VISIBILITY LEAK. If the path is public-facing (`README`, `SECURITY.md`, `CONTRIBUTING.md`, or anything under `public/`, `external/`, `11-external/`, `08-user/`), does the content contain internal hostnames, private IPs, credential-shaped strings, internal ticket ids, employee emails, or descriptions of unmitigated vulnerabilities?\n\nRespond with JSON only.\nIf both are fine: {\"ok\": true}\nIf not: {\"ok\": false, \"reason\": \"<which of the two problems, the specific lines or phrases at fault, and what to do instead>\"}\n\nBe conservative. A document that is merely terse, incomplete or unpolished is fine — say ok. Only flag a genuine audience mismatch or a genuine leak.\n\n$ARGUMENTS"
+            "prompt": "You are judging one documentation write against ONE named standard. The tool input contains `file_path` and `content`.\n\nEverything structural \u2014 required sections, size limits, links, frontmatter, duplicate ids \u2014 is already decided deterministically and reported by `docgov check`. Do not repeat any of it.\n\nFIRST, decide which lens applies, from the path and the content. There is no general standard for \"good documentation\", and applying one is how a review becomes unfalsifiable.\n\n  readme        a README, or a project front page. Can a stranger tell what this is and get it running in five minutes? Fails on: an architecture essay, no example of the thing running, prerequisites discovered halfway down.\n  user          a guide, tutorial or getting-started under user/, public/, docs/08-user/. Can the intended reader complete the task without already knowing the answer? Fails on: unexplained internal jargon, implementation detail the reader cannot act on, steps that assume state nobody established.\n  operations    a runbook, playbook, on-call or incident document. Could someone who did not write it execute it at 3am under pressure? Fails on: prose where numbered steps belong, a step with no expected result, a decision with no stated criterion.\n  architecture  an architecture document, ADR, design or domain spec. Are the boundaries, trade-offs and consequences legible to whoever inherits this? Fails on: installation steps, a decision with no alternatives considered, a diagram with no words.\n  developer     an API reference, integration or contribution guide. Can someone build against this without reading the source? Fails on: an endpoint with no error cases, an example that cannot run as written, a parameter with no type or default.\n  security      a threat model or security policy. Is the threat model stated, and does it avoid becoming an attack guide? Fails on: controls with no threat, an unmitigated vulnerability described in exploitable detail.\n  agent         instructions written for an agent. Could another agent act on this with nothing else to go on? Fails on: TBD/TODO a confident reader takes as fact, unstated prerequisites, claims with no source.\n\nTHEN judge the content against that lens and nothing else.\n\nRespond with JSON only.\nFine: {\"ok\": true}\nNot fine: {\"ok\": false, \"lens\": \"<which lens>\", \"reason\": \"<the specific lines or phrases at fault, and what to do instead>\"}\n\nBe conservative, and be more conservative here than you would be about a security question. A false positive costs somebody an argument about prose they were right about. Terse, incomplete, unpolished or simply short is not a failure \u2014 say ok. Flag only a real mismatch between what this document is and who it is for, and name the lens you judged against so the author can disagree with the standard rather than with you.\n\n$ARGUMENTS"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "prompt",
+            "if": "Write(**/*.md)",
+            "timeout": 20,
+            "continueOnBlock": true,
+            "prompt": "You are checking one documentation write for something that should not be published. The tool input contains `file_path` and `content`.\n\nA deterministic scan has already run over this content and reported what matched a known pattern. You are the half that pattern matching cannot do: the thing that is private because of what it *means*, not because of how it is shaped.\n\nLook for:\n- internal hostnames, private IP ranges, internal service or cluster names\n- credentials, tokens, keys or connection strings, including ones written as examples that are real\n- internal ticket ids, employee names or addresses, customer names\n- a vulnerability described in enough detail to act on, where the fix is not stated as shipped\n- internal architecture, capacity, incident or roadmap detail in a file whose path is public (`README`, `SECURITY.md`, `CONTRIBUTING.md`, or under public/, external/, docs/11-external/, docs/08-user/)\n\nRespond with JSON only.\nNothing found: {\"ok\": true}\nSomething found: {\"ok\": false, \"reason\": \"<what, on which line, and why it should not be there>\"}\n\nHere a false positive is cheap and a false negative is not. Ten seconds of someone looking at a string that turned out to be fine is a good trade against one published credential \u2014 so if you are unsure, say so rather than staying quiet. Never quote a full secret back: name the line and the kind.\n\nNote for whoever reads your answer: a clean result means no known pattern matched and nothing stood out. It never means the document contains no secrets.\n\n$ARGUMENTS"
           }
         ]
       }
     ],
-
     "PostToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit",
         "hooks": [
           {
             "type": "command",
-            "args": ["node", "${CLAUDE_PLUGIN_ROOT}/bin/docgov", "hook", "post-write"],
+            "args": [
+              "node",
+              "${CLAUDE_PLUGIN_ROOT}/bin/docgov",
+              "hook",
+              "post-write"
+            ],
             "timeout": 20
           }
         ]
       }
     ],
-
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
-            "args": ["node", "${CLAUDE_PLUGIN_ROOT}/bin/docgov", "hook", "stop"],
+            "args": [
+              "node",
+              "${CLAUDE_PLUGIN_ROOT}/bin/docgov",
+              "hook",
+              "stop"
+            ],
             "timeout": 20
           }
         ]

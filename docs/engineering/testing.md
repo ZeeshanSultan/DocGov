@@ -128,6 +128,11 @@ commit real files, and run the real binary as a subprocess.
   unknown authority tier, a hard limit below the soft one. And the abstain case is asserted in
   the same test as the match, because a custom class that quietly became a catch-all would
   pass every test that only checked it classifies its own documents.
+- **That a prompt still says what it is for.** The two review prompts are asserted on: that
+  there are two of them, that each names its own false-positive tolerance, that every lens
+  appears in the audience prompt, and that neither can block a write. Prompts are the one part
+  of the system with no other test — nothing fails when a prompt quietly loses the sentence
+  that made it conservative.
 - **Both sides of a refusal.** `create` refusing a competing document is only worth having if
   it refuses the right ones, so the tests assert the false-positive side as hard as the true
   one: a narrower name is reported and still written, an unrelated name is written silently,

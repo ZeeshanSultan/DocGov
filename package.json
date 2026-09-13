@@ -1,6 +1,6 @@
 {
   "name": "docgov-cli",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Your AI writes docs faster than anyone can check them. DocGov checks them.",
   "type": "module",
   "license": "MIT",

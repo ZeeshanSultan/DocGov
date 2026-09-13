@@ -1,7 +1,7 @@
 {
   "name": "docgov",
   "displayName": "DocGov",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Your AI writes docs faster than anyone can check them. DocGov checks them — catches stale docs, duplicate files, and docs that contradict your code. Claude Code plugin + CLI.",
   "author": {
     "name": "DocGov"

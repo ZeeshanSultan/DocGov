@@ -57,7 +57,7 @@ wild say, and matching the data that exists is worth more than matching a nicer 
 ```bash
 git clone https://github.com/ZeeshanSultan/DocGov.git
 cd DocGov
-npm test                 # 60 tests, no install needed
+npm test                 # 145 tests, no install needed
 ./bin/docgov health      # DocGov governing itself
 ```
 

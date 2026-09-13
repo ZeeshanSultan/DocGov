@@ -74,18 +74,25 @@ function install(pluginRoot) {
   const out = [];
   const at = (...p) => path.join(pluginRoot, ...p);
 
-  // Version skew between the two manifests. They are read by different software — npm and
-  // Claude Code — so nothing forces them to agree, and a user reporting a bug quotes one.
+  // Version skew between the manifests. They are read by different software — npm, Claude
+  // Code's plugin loader, its marketplace listing — so nothing forces them to agree, and a
+  // user reporting a bug quotes whichever one they can see. Checking two of the three was its
+  // own version of this bug: cutting a release found a third file declaring a version that
+  // nothing compared, in two places.
   const pkg = readJSON(at('package.json'));
   const manifest = readJSON(at('.claude-plugin', 'plugin.json'));
+  const market = readJSON(at('.claude-plugin', 'marketplace.json'));
   if (!pkg || !manifest) {
     out.push(fail('manifests', 'package.json or .claude-plugin/plugin.json is missing or unparseable',
       'reinstall DocGov — this install is incomplete'));
-  } else if (pkg.version !== manifest.version) {
-    out.push(fail('version-skew', `package.json says ${pkg.version}, plugin.json says ${manifest.version}`,
-      'set both to the same version; a user reporting a bug quotes whichever they can see'));
   } else {
-    out.push(ok('version', `DocGov ${pkg.version}`));
+    const declared = [['package.json', pkg.version], ['plugin.json', manifest.version],
+      ...marketplaceVersions(market)];
+    const distinct = [...new Set(declared.map(([, v]) => v).filter(Boolean))];
+    out.push(distinct.length > 1
+      ? fail('version-skew', declared.filter(([, v]) => v).map(([f, v]) => `${f} says ${v}`).join(', '),
+        'set them all to the same version; a user reporting a bug quotes whichever they can see')
+      : ok('version', `DocGov ${pkg.version}`));
   }
 
   // Hooks: registered, parseable, pointing at files that exist, and naming events the CLI
@@ -322,6 +329,16 @@ function repository(root) {
 }
 
 // ───────────────────────────── helpers ─────────────────────────────
+
+/** Every version a marketplace listing declares, wherever it declares it. */
+function marketplaceVersions(market, out = [], depth = 0) {
+  if (!market || typeof market !== 'object' || depth > 4) return out;
+  for (const [k, v] of Object.entries(market)) {
+    if (k === 'version' && typeof v === 'string') out.push(['marketplace.json', v]);
+    else if (v && typeof v === 'object') marketplaceVersions(v, out, depth + 1);
+  }
+  return out;
+}
 
 function readJSON(file) {
   try { return JSON.parse(read(file)); } catch { return null; }

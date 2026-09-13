@@ -185,6 +185,19 @@ test('classifier: a singleton class only wins at its canonical path', () => {
     'docs/guides/README.md', 'an index belongs to its own directory and must never be relocated');
 });
 
+test('classifier: a misplaced singleton is still classified, not left unknown', () => {
+  // Deleting off-canonical singletons left nothing to report: `docs/CODE_OF_CONDUCT.md`
+  // came back `unknown` / "no signal matched", when being in the wrong place is precisely
+  // what should have been said about it.
+  const body = '# Code of conduct\n\nBe decent.\n';
+  const off = classify({ path: 'docs/CODE_OF_CONDUCT.md', body, frontmatter: {} });
+  assert.equal(off.type, 'governance.code-of-conduct');
+  assert.ok(off.needsReview, 'low confidence off its canonical path');
+  assert.ok(off.signals.some((w) => w.includes('canonical path')), 'it must say why');
+  const at = classify({ path: 'CODE_OF_CONDUCT.md', body, frontmatter: {} });
+  assert.ok(at.confidence > off.confidence, 'the canonical location must still win outright');
+});
+
 test('check: a plugin repository does not govern its own components', async () => {
   const cfgm = await import('../core/config.js');
   const dir = tmpRepo();

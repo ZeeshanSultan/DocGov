@@ -192,12 +192,19 @@ export function classify(doc) {
   // Singleton classes (README, CHANGELOG, the constitution documents) exist exactly once,
   // at a fixed path. A nested README.md is a directory index, not *the* README, and letting
   // it win would send every subdirectory README to the repository root.
+  // Demoted rather than deleted. Deleting left a misplaced singleton with no candidates
+  // at all — `docs/CODE_OF_CONDUCT.md` classified as `unknown`, "no signal matched",
+  // when being in the wrong place is exactly what should have been reported. A nested
+  // README still loses, because `docs.index` scores 55 against a demoted 25.
+  const SINGLETON_OFF_CANONICAL = 0.25;
   for (const [type, t] of Object.entries(TYPES)) {
     if (!t.singleton || !scores.has(type)) continue;
     const canonical = t.compact || t.full;
     if (rel !== canonical) {
-      scores.delete(type);
-      signals.delete(type);
+      scores.set(type, Math.round(scores.get(type) * SINGLETON_OFF_CANONICAL));
+      const why = signals.get(type) || [];
+      why.push(`not at the canonical path ${canonical}`);
+      signals.set(type, why);
     }
   }
 

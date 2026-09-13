@@ -817,28 +817,45 @@ test('cli: check exits 1 on a blocking violation and 0 once it is fixed', () => 
   assert.equal(cli(dir, ['check']).code, EXIT.OK);
 });
 
-test('cli: review names a destination collision instead of leaving it to fix', () => {
-  // `fix` refuses these — two documents at one path destroys one of them — but it only
-  // found out at execution, after the plan had been read and approved. Three real
-  // repositories had 29, 12 and 1 collisions; every one of those plans was unrunnable
-  // and nothing said so. Same-basename documents in different directories both resolve
-  // to <canonical dir>/<basename>, which is how they arise.
+test('cli: two documents with one canonical destination are told apart, not collided', () => {
+  // `<canonical dir>/<basename>` discards the source directory, so same-named documents
+  // fought for one path: 29 on one repository, which made its whole plan unrunnable.
+  // The leading source segment is kept, because in a monorepo it names the module.
   const dir = tmpRepo();
   wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
-  wf(dir, 'a/runbook.md', '# R\n\nOn a SEV-1, escalate to the on-call rota.\n');
-  wf(dir, 'b/runbook.md', '# R2\n\nOn a SEV-2, escalate to the on-call rota.\n');
+  wf(dir, 'alpha/docs/runbook.md', '# R\n\nOn a SEV-1, escalate to the on-call rota.\n');
+  wf(dir, 'beta/docs/runbook.md', '# R2\n\nOn a SEV-2, escalate to the on-call rota.\n');
   commit(dir);
   cli(dir, ['setup', '--mode', 'solo']);
   const r = cli(dir, ['review']);
   assert.equal(r.code, 0);
-  assert.match(r.out, /destination collision/i, 'review must say the plan will not run');
 
   const plan = JSON.parse(fs.readFileSync(path.join(dir, '.docgov', 'fix-plan.json'), 'utf8'));
-  assert.ok(plan.collisions.length >= 1, 'the collision must be in the machine-readable plan');
-  assert.ok(plan.collisions.every((c) => c.paths.length && c.to), 'each names its paths and destination');
-  // and the actions involved must be flagged, not silently left as mechanical
-  const flagged = plan.actions.filter((a) => a.kind === 'MOVE' && a.risk === 'high');
-  assert.ok(flagged.length >= 2, 'both sides of a collision need a human');
+  assert.deepEqual(plan.collisions, [], 'nothing may be left colliding');
+  const moves = plan.actions.filter((a) => a.kind === 'MOVE');
+  const dests = moves.map((m) => m.to);
+  assert.equal(new Set(dests).size, dests.length, 'every destination is distinct');
+  assert.ok(dests.some((d) => d.includes('alpha/')) && dests.some((d) => d.includes('beta/')),
+    'the distinguishing segment is kept');
+  assert.equal(cli(dir, ['fix', '--dry-run']).code, 0, 'the plan must now be runnable');
+});
+
+test('cli: a single-document class keeps one holder and leaves the rest in place', () => {
+  // A fixed path cannot be disambiguated — only one document can be THE changelog — so
+  // the others must stay where they are rather than being moved onto each other.
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  wf(dir, 'CHANGELOG.md', '# Changelog\n\n## [1.0.0]\n');
+  wf(dir, 'sub/CHANGELOG.md', '# Changelog\n\n## [0.9.0]\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  cli(dir, ['review']);
+  const plan = JSON.parse(fs.readFileSync(path.join(dir, '.docgov', 'fix-plan.json'), 'utf8'));
+  assert.deepEqual(plan.collisions, [], 'nothing may be left colliding');
+  const onto = plan.actions.filter((a) => a.kind === 'MOVE' && a.to === 'CHANGELOG.md'
+    && a.path !== 'CHANGELOG.md');
+  assert.equal(onto.length, 0, 'nothing may be moved onto the existing changelog');
+  assert.equal(cli(dir, ['fix', '--dry-run']).code, 0, 'the plan must be runnable');
 });
 
 test('cli: test fixtures are not documentation', () => {

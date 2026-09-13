@@ -150,8 +150,22 @@ export function save(root, raw) {
   return write(path.join(root, CONFIG_PATH), yaml.stringify(raw));
 }
 
-/** Does this check id block, given mode + warn_only? */
-export function blocks(cfg, checkId) {
+/**
+ * The plugin's `enforcement` option, as Claude Code passes it to a command hook.
+ * `userConfig` values arrive as CLAUDE_PLUGIN_OPTION_<key> environment variables, and only
+ * command hooks receive them — which is why this is read here rather than declared in
+ * hooks.json. Absent or unrecognised means "let the repository decide".
+ */
+export function enforcementOverride(env = process.env) {
+  const v = env.CLAUDE_PLUGIN_OPTION_enforcement ?? env.CLAUDE_PLUGIN_OPTION_ENFORCEMENT;
+  return v === 'warn' || v === 'strict' ? v : 'repo';
+}
+
+/** Does this check id block, given mode + warn_only, and the plugin's enforcement option? */
+export function blocks(cfg, checkId, env = process.env) {
+  const override = enforcementOverride(env);
+  if (override === 'warn') return false;                    // never block a write
+  if (override === 'strict') return true;                   // block every deterministic finding
   if (cfg.governance.warn_only) return false;
   return (cfg.governance.enforce || []).includes(checkId);
 }

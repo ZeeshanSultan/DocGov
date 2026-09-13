@@ -26,9 +26,11 @@ const MECHANICAL = new Set(['MOVE', 'ANNOTATE', 'ARCHIVE', 'CREATE']);
  * @param {{root:string, cfg:object, docs:any[], planData:object, dryRun?:boolean,
  *          include?:string[], branch?:string|null, useGit?:boolean}} args
  */
-export function migrate({ root, cfg, docs, planData, dryRun = false, include = [], branch = null, useGit = true }) {
+export function migrate({ root, cfg, docs, planData, dryRun = false, include = [], skip = [], branch = null, useGit = true }) {
   const kinds = new Set([...MECHANICAL, ...include.map((k) => k.toUpperCase())]);
-  const actions = planData.actions.filter((a) => kinds.has(a.kind));
+  let actions = planData.actions.filter((a) => kinds.has(a.kind));
+  const skipIds = new Set(skip);
+  if (skipIds.size) actions = actions.filter((a) => !skipIds.has(a.id));
   const ops = [];
   const skipped = [];
 
@@ -42,6 +44,31 @@ export function migrate({ root, cfg, docs, planData, dryRun = false, include = [
         'Commit or stash these first — `git add -A && git commit -m "chore: adopt DocGov"` is usually what is wanted.',
       ].join('\n'),
       EXIT.CONFIG);
+  }
+
+  // ---- every path in the plan must stay inside the repository, checked before anything
+  // moves. The plan is an editable file: a human resolves collisions in it, and anything
+  // that can write it can choose where a document lands. Until this existed the boundary
+  // was held by `git mv` refusing an outside path — incidental, not designed, and absent
+  // entirely on the `--no-git` path, where `fs.renameSync` wrote wherever it was told.
+  // Every action is validated before the first one executes, so a bad plan moves nothing
+  // rather than stopping halfway.
+  const repoRoot = path.resolve(root);
+  const insideRepo = (rel) => {
+    if (typeof rel !== 'string' || rel === '') return false;
+    if (path.isAbsolute(rel)) return false;
+    if (/^[a-zA-Z]:[\\/]/.test(rel)) return false;          // c:\… on Windows
+    if (rel.includes('\0')) return false;
+    const resolved = path.resolve(repoRoot, rel);
+    return resolved === repoRoot || resolved.startsWith(repoRoot + path.sep);
+  };
+  for (const a of actions) {
+    for (const [field, value] of [['path', a.path], ['to', a.to]]) {
+      if (value == null) continue;
+      if (!insideRepo(value)) throw new DocGovError(
+        `refusing to act on a path outside the repository: ${a.kind || 'action'} ${field} ${JSON.stringify(value)}. `
+        + `Every path in ${PLAN_DATA_PATH} must be relative to the repository root.`);
+    }
   }
 
   // ---- plan the file operations

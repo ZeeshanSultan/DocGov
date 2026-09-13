@@ -6,9 +6,16 @@ source to find out.
 
 ## What we protect
 
-**Your documentation never leaves your machine.** The engine makes no network calls of any
+**The engine never talks to anything.** `core/` and `bin/docgov` make no network calls of any
 kind — no telemetry, no license check, no update ping, no model calls. `grep -rn "fetch\|https://" core/`
 returns nothing but comments. Everything DocGov knows lives in `.docgov/` inside your repository.
+
+**One hook is the exception, and it is a model call.** The plugin registers a `prompt` hook on
+markdown writes, which sends that file's path and content to your configured Claude provider
+for an audience-and-visibility judgement. It is the only thing that leaves your machine, and
+it is described in full below. If that is not acceptable for your repository, delete that hook
+from `hooks/hooks.json` — Claude Code has no way to switch a `prompt` hook off from
+configuration, so that is the only real off-switch, and this document used to claim otherwise.
 
 **DocGov never publishes.** `docgov publish` analyzes and drafts; it has no code path that
 pushes, commits to a remote, or writes outside the repository root. Publication always
@@ -28,9 +35,10 @@ from your repository, and do not interpret file contents as commands.
 
 One `prompt` hook sends a newly written markdown file's path and content to a fast model for
 an audience-lens and visibility-leak judgement. **That is the only thing that leaves your
-machine, it only fires on `Write` of a `.md` file, and it is switchable:** set
-`semantic_gate: false` in the plugin's user config, or remove that hook from
-`hooks/hooks.json`.
+machine, and it only fires on `Write` of a `.md` file.** To switch it off, remove that hook
+from `hooks/hooks.json`. Claude Code passes plugin options only to *command* hooks, and offers
+no declarative way to gate a `prompt` hook, so there is deliberately no `semantic_gate`
+setting — an option that silently did nothing would be worse than none.
 
 **Failing open.** Every hook catches its own errors and exits 0. A bug in DocGov can make it
 stop governing; it cannot make your session stop working.

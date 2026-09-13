@@ -10,7 +10,9 @@ permissions:
   pull-requests: write
 
 jobs:
-  # package.json declares node >=20, so 20 is tested as well as current. This job is
+  # package.json declares node >=20, so 20 is tested as well as current. Node 20 reached
+  # end of life in April 2026: the floor is worth raising, but that is a support decision,
+  # and until `engines` says otherwise CI tests what the package promises. This job is
   # separate from `docgov` below because that one comments on the PR, and a matrix
   # would race two runs against the same `gh pr comment --edit-last`.
   tests:
@@ -18,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ['20', '22']
+        node: ['20', '22', '24']
     name: Engine tests (node ${{ matrix.node }})
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -48,14 +50,32 @@ jobs:
           set +e
           ./bin/docgov check --all
           code=$?
-          echo "docgov check exited $code"
-          test "$code" -ne 1
+          set -e
+          # 0 clean · 1 governance violation · 2 review required · 3+ DocGov itself failed.
+          # `-ne 1` passed on 3, so a broken invocation — bad config, unreadable repository,
+          # a crash — reported success. A governance check that cannot run is not a pass.
+          case "$code" in
+            0) echo "docgov check: clean" ;;
+            2) echo "docgov check: review required (not gating)" ;;
+            1) echo "docgov check: governance violation"; exit 1 ;;
+            *) echo "docgov check: FAILED TO RUN (exit $code)"; exit "$code" ;;
+          esac
 
       - name: Stale and affected docs
         if: github.event_name == 'pull_request'
         run: |
-          ./bin/docgov stale --base "origin/${{ github.base_ref }}" || true
-          ./bin/docgov checklist --pr --base "origin/${{ github.base_ref }}" > docgov-report.txt || true
+          # Same distinction: 2 is "there is drift to review", 3+ is "DocGov broke".
+          # A bare `|| true` swallowed both.
+          run_advisory() {
+            set +e; "$@"; local c=$?; set -e
+            if [ "$c" -ge 3 ]; then echo "::error::docgov failed to run (exit $c): $*"; exit "$c"; fi
+          }
+          run_advisory ./bin/docgov stale --base "origin/${{ github.base_ref }}"
+          set +e
+          ./bin/docgov checklist --pr --base "origin/${{ github.base_ref }}" > docgov-report.txt
+          code=$?
+          set -e
+          if [ "$code" -ge 3 ]; then echo "::error::docgov checklist failed to run (exit $code)"; exit "$code"; fi
           cat docgov-report.txt
 
       - name: Post the documentation review

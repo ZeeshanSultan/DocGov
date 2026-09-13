@@ -251,7 +251,8 @@ function cmdReview() {
     if (planData.collisions.length > 5) say(`  … and ${planData.collisions.length - 5} more`);
   }
   say('');
-  say('Read the plan, delete anything you disagree with, then: docgov fix --dry-run');
+  say('Read the plan. To drop an action, pass its id: docgov fix --skip DG-01234');
+  say('Then: docgov fix --dry-run');
   return EXIT.OK;
 }
 
@@ -262,6 +263,7 @@ function cmdFix() {
   const planData = JSON.parse(read(dataPath));
   const dryRun = flags.dry_run === true || flags.dry === true;
   const include = list(flags.include);
+  const skip = flags.skip ? list(flags.skip) : [];
   const useGit = flags.no_git !== true;
 
   let branch = null;
@@ -271,7 +273,7 @@ function cmdFix() {
     else git.createBranch(c.root, branch);
   }
 
-  const result = migratemod.migrate({ root: c.root, cfg: c.cfg, docs: c.docs, planData, dryRun, include, branch, useGit });
+  const result = migratemod.migrate({ root: c.root, cfg: c.cfg, docs: c.docs, planData, dryRun, include, skip, branch, useGit });
 
   if (!dryRun) {
     const after = ctx();
@@ -1044,6 +1046,12 @@ function hookPostWrite(input) {
 }
 
 function hookSessionStart(input) {
+  // The plugin's `session_briefing` option. Claude Code passes userConfig to command hooks
+  // as CLAUDE_PLUGIN_OPTION_<key>; there is no declarative way to gate a hook, so the gate
+  // lives here. Without this the option was advertised in plugin.json and honoured nowhere.
+  const briefing = process.env.CLAUDE_PLUGIN_OPTION_session_briefing
+    ?? process.env.CLAUDE_PLUGIN_OPTION_SESSION_BRIEFING;
+  if (briefing === 'false') return EXIT.OK;
   const { root, cfg, initialized } = cfgmod.load(input.cwd || process.cwd());
   if (!initialized) return EXIT.OK;
   const registry = reg.load(root);
@@ -1155,7 +1163,7 @@ function usage() {
 Start here
   setup [--mode M] [--layout full|compact]   turn DocGov on in this repo
   review                                     look at the docs you already have, write a fix plan
-  fix [--dry-run] [--include split,..]       run that plan on a branch; reverts itself if it breaks
+  fix [--dry-run] [--include split,..] [--skip ID,..]  run that plan on a branch; reverts itself if it breaks
 
 Every day
   create <type> "<name>" [--domain D]        new doc: right place, right template, already wired up

@@ -19,7 +19,7 @@ than any review process can repair it.
    will be told when it goes stale.
 
 Never invent a new top-level Markdown file. Never invent a new documentation
-directory. The taxonomy has 59 document classes; run `docgov types` before
+directory. The taxonomy has a class for almost everything; run `docgov types` before
 concluding that yours is not one of them.
 
 ## Before editing code in a governed area

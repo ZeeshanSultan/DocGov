@@ -19,6 +19,7 @@ docgov:
       - docgov-feasibility
   review:
     cadence: 90d
+    last: 2026-09-13
   generation:
     mode: human-maintained
 ---

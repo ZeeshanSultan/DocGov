@@ -5,7 +5,7 @@ import { matchGlob } from './util.js';
 /**
  * Deterministic, explainable classification.
  *
- * Every candidate carries the signals that produced it, so `docgov classify`
+ * Every candidate carries the signals that produced it, so `docgov whatis`
  * can always answer "why". The LLM layer is only asked to adjudicate when the
  * top two candidates are close (see `needsReview`) — it never sees the easy cases.
  */
@@ -17,9 +17,9 @@ const NAME_SIGNALS = [
   [/^contributing/i, 'governance.contributing', 100],
   [/^security\.mdx?$/i, 'security.public-model', 70],
   [/^support/i, 'governance.support', 90],
-  [/^changelog/i, 'release.notes', 100],
+  [/^changelog/i, 'release.changelog', 100],
   [/^claude\.mdx?$|^agents\.mdx?$|^\.cursorrules$/i, 'agent.instructions', 100],
-  [/^code_of_conduct/i, 'governance.policy', 70],
+  [/^code_of_conduct/i, 'governance.code-of-conduct', 95],
   [/^license/i, 'governance.policy', 30],
   [/^product\.mdx?$/i, 'constitution.product', 90],
   [/^principles?\.mdx?$/i, 'constitution.principles', 90],

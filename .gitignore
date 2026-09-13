@@ -7,9 +7,10 @@ node_modules/
 # the moment it completes.
 .docgov/cache/
 .docgov/reports/
-.docgov/onboarding-plan.md
-.docgov/onboarding-plan.json
-.docgov/manifest.yaml
+.docgov/fix-plan.md
+.docgov/fix-plan.json
+.docgov/checklist.yaml
+.docgov/tools.json
 .kangentic/
 .claude/settings.local.json
 kangentic.local.json

@@ -75,7 +75,7 @@ function emit(obj) { if (JSONOUT) console.log(JSON.stringify(obj, null, flags.co
 function ctx({ requireInit = true } = {}) {
   const { root, cfg, raw, initialized } = cfgmod.load(process.cwd());
   if (requireInit && !initialized) {
-    throw new DocGovError('this repository is not governed yet. Run `docgov init` (or `docgov onboard` for an existing documentation tree).');
+    throw new DocGovError('this repository is not governed yet. Run `docgov setup` (or `docgov review` for an existing documentation tree).');
   }
   const i = inv.inventory(root, cfg);
   const docs = i.documents;
@@ -85,27 +85,27 @@ function ctx({ requireInit = true } = {}) {
 }
 
 const COMMANDS = {
-  init: cmdInit,
-  onboard: cmdOnboard,
-  migrate: cmdMigrate,
-  classify: cmdClassify,
-  organize: cmdOrganize,
+  setup: cmdSetup,
+  review: cmdReview,
+  fix: cmdFix,
+  whatis: cmdWhatis,
+  tag: cmdTag,
   create: cmdCreate,
   check: cmdCheck,
-  drift: cmdDrift,
-  impact: cmdImpact,
-  manifest: cmdManifest,
-  context: cmdContext,
+  stale: cmdStale,
+  affected: cmdAffected,
+  checklist: cmdChecklist,
+  brief: cmdBrief,
   find: cmdFind,
   health: cmdHealth,
   publish: cmdPublish,
   registry: cmdRegistry,
   graph: cmdGraph,
-  invariants: cmdInvariants,
+  rules: cmdRules,
   types: cmdTypes,
-  capabilities: cmdCapabilities,
-  suppress: cmdSuppress,
-  review: cmdReviewPackets,
+  tools: cmdTools,
+  ignore: cmdIgnore,
+  inspect: cmdInspect,
   hook: cmdHook,
   version: () => { say(packageVersion()); return EXIT.OK; },
   help: usage,
@@ -128,7 +128,7 @@ try {
 
 // ───────────────────────────── commands ─────────────────────────────
 
-function cmdInit() {
+function cmdSetup() {
   const { root, initialized } = cfgmod.load(process.cwd());
   if (initialized && !flags.force) throw new DocGovError('already initialized. Pass --force to rewrite .docgov/config.yaml.');
 
@@ -185,27 +185,27 @@ function cmdInit() {
   say('');
   if (warnOnly) {
     say(`warn_only is on because ${preexisting} document(s) predate DocGov — nothing will block yet.`);
-    say('Run `docgov onboard`, migrate, then remove `warn_only` from .docgov/config.yaml.');
+    say('Run `docgov review`, then `docgov fix`, then remove `warn_only` from .docgov/config.yaml.');
     say('');
   }
   say(i.documents.length > 2
-    ? 'Next: `docgov onboard` to classify what is already here.'
+    ? 'Next: `docgov review` to classify what is already here.'
     : 'Next: `docgov create user.readme` or `docgov check`.');
   if (git.isRepo(root) && !git.isClean(root)) {
     say('');
-    say('Commit this setup before migrating — `migrate` needs a clean tree so it stays revertible:');
+    say('Commit this before running `docgov fix` — it needs a clean tree so it stays revertible:');
     say('  git add -A && git commit -m "chore: adopt DocGov"');
   }
   return EXIT.OK;
 }
 
 
-function cmdOnboard() {
+function cmdReview() {
   const c = ctx({ requireInit: false });
   if (!c.initialized) {
-    say('Not initialized — running `docgov init` with inferred settings first.\n');
-    cmdInit();
-    return cmdOnboard();
+    say('Not initialized — running `docgov setup` with inferred settings first.\n');
+    cmdSetup();
+    return cmdReview();
   }
   const planData = onboardmod.plan(c);
   const md = onboardmod.render(planData, c.cfg);
@@ -214,8 +214,8 @@ function cmdOnboard() {
 
   if (JSONOUT) return emit({ plan: onboardmod.PLAN_PATH, data: onboardmod.PLAN_DATA_PATH, ...planData }) ?? EXIT.OK;
   const s = planData.summary;
-  say('DocGov onboarding');
-  say('─────────────────');
+  say('DocGov review');
+  say('─────────────');
   say(`${plural(s.documents, 'document')} inventoried · ${plural(planData.contracts.length, 'machine contract')} · stack: ${planData.stack.map((x) => x.id).join(', ') || 'none detected'}`);
   say('');
   say(table([
@@ -234,14 +234,14 @@ function cmdOnboard() {
   say(`Plan written to ${onboardmod.PLAN_PATH} — nothing has changed.`);
   say(`${s.needJudgement} of ${planData.actions.length} actions need a judgement call.`);
   say('');
-  say('Read the plan, delete anything you disagree with, then: docgov migrate --dry-run');
+  say('Read the plan, delete anything you disagree with, then: docgov fix --dry-run');
   return EXIT.OK;
 }
 
-function cmdMigrate() {
+function cmdFix() {
   const c = ctx();
   const dataPath = path.join(c.root, onboardmod.PLAN_DATA_PATH);
-  if (!exists(dataPath)) throw new DocGovError('no onboarding plan found. Run `docgov onboard` first.');
+  if (!exists(dataPath)) throw new DocGovError('no fix plan found. Run `docgov review` first.');
   const planData = JSON.parse(read(dataPath));
   const dryRun = flags.dry_run === true || flags.dry === true;
   const include = list(flags.include);
@@ -286,7 +286,7 @@ function cmdMigrate() {
   if (branch) say(`Branch: ${branch}`);
   if (result.deferred.length) {
     say('');
-    say(`Deferred to /docgov:organize (these rewrite prose, so an agent does them with you): ${result.deferred.length}`);
+    say(`Deferred to /docgov:tag (these rewrite prose, so an agent does them with you): ${result.deferred.length}`);
     for (const d of result.deferred.slice(0, 8)) say(`  ${d.kind.padEnd(8)} ${d.path || d.to}`);
   }
   if (result.verification?.length) {
@@ -301,7 +301,7 @@ function cmdMigrate() {
   return EXIT.OK;
 }
 
-function cmdClassify() {
+function cmdWhatis() {
   const c = ctx({ requireInit: false });
   const targets = flags.path ? [String(flags.path)] : (flags._.length ? flags._ : c.docs.map((d) => d.path));
   const rows = [];
@@ -330,7 +330,7 @@ function cmdClassify() {
   return EXIT.OK;
 }
 
-function cmdOrganize() {
+function cmdTag() {
   const c = ctx();
   const apply = flags.apply === true;
   const only = flags.path ? [String(flags.path)] : null;
@@ -361,8 +361,8 @@ function cmdOrganize() {
   say(table(changes.map((x) => ({ Document: x.path, Action: x.action, Type: x.type || '', Destination: x.destination || '' })),
     ['Document', 'Action', 'Type', 'Destination']));
   say('');
-  say(apply ? 'Frontmatter applied. Moves are handled by `docgov migrate` so they stay transactional.'
-            : 'Pass --apply to write frontmatter. Moves go through `docgov onboard` + `docgov migrate`.');
+  say(apply ? 'Frontmatter applied. Moves are handled by `docgov fix` so they stay transactional.'
+            : 'Pass --apply to write frontmatter. Moves go through `docgov review` + `docgov fix`.');
   return EXIT.OK;
 }
 
@@ -425,7 +425,7 @@ function cmdCreate() {
     say('');
     say('Authoritative context you should read before writing this:');
     for (const r of related.slice(0, 4)) say(`  [${r.label}] ${r.path}`);
-    say(`  (or run: docgov context ${domain || name})`);
+    say(`  (or run: docgov brief ${domain || name})`);
   }
   return EXIT.OK;
 }
@@ -501,19 +501,19 @@ function cmdCheck() {
 }
 
 function printFinding(f) {
-  say(`  ${f.severity.padEnd(8)} ${f.rule.padEnd(21)} ${f.path}`);
+  say(`  ${f.severity.padEnd(8)} ${f.check.padEnd(21)} ${f.path}`);
   say(`           ${f.message}`);
   if (f.fix) say(`           fix: ${f.fix}`);
 }
 
 function findingId(f) {
-  const basis = `${f.rule}:${f.path}:${f.other || ''}`;
+  const basis = `${f.check}:${f.path}:${f.other || ''}`;
   let h = 0;
   for (let i = 0; i < basis.length; i++) h = (h * 31 + basis.charCodeAt(i)) >>> 0;
-  return `${f.rule.toUpperCase().replace(/-/g, '')}-${String(h % 10000).padStart(4, '0')}`;
+  return `${f.check.toUpperCase().replace(/-/g, '')}-${String(h % 10000).padStart(4, '0')}`;
 }
 
-function cmdDrift() {
+function cmdStale() {
   const c = ctx();
   const base = flags.base ? String(flags.base) : 'HEAD';
   const res = driftmod.analyze({ root: c.root, cfg: c.cfg, docs: c.docs, graph: c.graph, base });
@@ -554,16 +554,16 @@ function cmdDrift() {
   }
   if (split.suppressed.length) say(`${split.suppressed.length} finding(s) suppressed.`);
   say('Semantic confirmation (does the prose actually contradict the code?) is the drift-reviewer');
-  say('agent\'s job: run /docgov:drift in Claude Code. This report is the deterministic half.');
+  say('agent\'s job: run /docgov:stale in Claude Code. This report is the deterministic half.');
   return split.active.some((f) => ['critical', 'high'].includes(f.severity)) ? EXIT.REVIEW : EXIT.OK;
 }
 
-function cmdImpact() {
+function cmdAffected() {
   const c = ctx();
   const base = flags.base ? String(flags.base) : 'HEAD';
   const paths = flags.paths ? list(flags.paths) : (flags._.length ? flags._ : null);
   const res = impactmod.analyze({ root: c.root, cfg: c.cfg, docs: c.docs, graph: c.graph, base, paths });
-  if (JSONOUT) return emit({ ...res, manifest: impactmod.manifest(res) }) ?? EXIT.OK;
+  if (JSONOUT) return emit({ ...res, checklist: impactmod.checklist(res) }) ?? EXIT.OK;
   say('CHANGE IMPACT');
   say(`Changed: ${res.changed.length} file(s)${res.domains.length ? ` · domains: ${res.domains.join(', ')}` : ''}`);
   say(`Impact level: ${res.level}`);
@@ -586,17 +586,17 @@ function cmdImpact() {
 
 function yn(b) { return b ? 'yes' : 'no '; }
 
-function cmdManifest() {
+function cmdChecklist() {
   const c = ctx();
   const base = flags.base ? String(flags.base) : 'HEAD';
   const res = impactmod.analyze({ root: c.root, cfg: c.cfg, docs: c.docs, graph: c.graph, base });
-  const m = impactmod.manifest(res);
-  const out = path.join(c.root, '.docgov', 'manifest.yaml');
-  if (flags.write !== false) write(out, yaml.stringify(m));
+  const m = impactmod.checklist(res);
+  const out = path.join(c.root, '.docgov', 'checklist.yaml');
+  if (flags.no_write !== true) write(out, yaml.stringify(m));
   if (flags.pr === true) {
     const drift = driftmod.analyze({ root: c.root, cfg: c.cfg, docs: c.docs, graph: c.graph, base });
     const report = impactmod.prReport(res, drift, c.cfg);
-    if (JSONOUT) return emit({ manifest: m, pr: report }) ?? (report.blocked ? EXIT.REVIEW : EXIT.OK);
+    if (JSONOUT) return emit({ checklist: m, pr: report }) ?? (report.blocked ? EXIT.REVIEW : EXIT.OK);
     say(report.text);
     return report.blocked ? EXIT.REVIEW : EXIT.OK;
   }
@@ -607,10 +607,10 @@ function cmdManifest() {
   return m.docs.outstanding.length ? EXIT.REVIEW : EXIT.OK;
 }
 
-function cmdContext() {
+function cmdBrief() {
   const c = ctx();
   const topic = flags._[0] || flags.topic;
-  if (!topic) throw new DocGovError('usage: docgov context <topic>');
+  if (!topic) throw new DocGovError('usage: docgov brief <topic>');
   const pack = ctxpack.pack({ cfg: c.cfg, docs: c.docs, graph: c.graph, topic: String(topic),
     budget: flags.budget ? parseInt(flags.budget, 10) : undefined,
     include: flags.include ? list(flags.include) : null });
@@ -739,19 +739,19 @@ function cmdGraph() {
   return EXIT.OK;
 }
 
-function cmdInvariants() {
+function cmdRules() {
   const c = ctx();
   const set = invariantsmod.collect(c.docs, c.cfg);
   if (flags.for) {
     const applicable = invariantsmod.applicable(set, list(flags.for), c.cfg);
     if (JSONOUT) return emit(applicable) ?? EXIT.OK;
     const rendered = invariantsmod.render(applicable);
-    if (rendered) say(rendered); else say('No invariants apply to those paths.');
+    if (rendered) say(rendered); else say('No rules apply to those paths.');
     return EXIT.OK;
   }
   if (JSONOUT) return emit(set) ?? EXIT.OK;
   if (!set.invariants.length) {
-    say('No invariants declared.');
+    say('No rules declared.');
     say('');
     say('Declare them in any canonical document as list items beginning with an id:');
     say('  - INV-LIC-001 A license belongs to exactly one organization.');
@@ -764,7 +764,7 @@ function cmdInvariants() {
   })), ['Id', 'Domain', 'Statement', 'Source']));
   if (set.duplicates.length) {
     say('');
-    say('Duplicate invariant ids:');
+    say('Duplicate rule ids:');
     for (const d of set.duplicates) say(`  ${d.id}: ${d.sources.join(' and ')}`);
     return EXIT.VIOLATION;
   }
@@ -785,13 +785,13 @@ function cmdTypes() {
   return EXIT.OK;
 }
 
-function cmdCapabilities() {
+function cmdTools() {
   const { root } = cfgmod.load(process.cwd());
   const plugins = list(flags.plugins);
   const caps = inv.capabilities(root, plugins);
-  const outPath = path.join(root, '.docgov', 'capabilities.json');
+  const outPath = path.join(root, '.docgov', 'tools.json');
   write(outPath, JSON.stringify({ generated: new Date().toISOString(), capabilities: caps }, null, 2) + '\n');
-  if (JSONOUT) return emit({ capabilities: caps, written: '.docgov/capabilities.json' }) ?? EXIT.OK;
+  if (JSONOUT) return emit({ capabilities: caps, written: '.docgov/tools.json' }) ?? EXIT.OK;
   say('Capability registry');
   say('');
   for (const [cap, providers] of Object.entries(caps).sort()) say(`  ${cap.padEnd(24)} ${providers.join(', ')}`);
@@ -800,7 +800,7 @@ function cmdCapabilities() {
   return EXIT.OK;
 }
 
-function cmdSuppress() {
+function cmdIgnore() {
   const c = ctx();
   if (flags.list === true || flags._[0] === 'list') {
     const data = supp.load(c.root, c.cfg);
@@ -816,18 +816,18 @@ function cmdSuppress() {
     return ok ? EXIT.OK : EXIT.CONFIG;
   }
   const id = flags._[0] || flags.id;
-  if (!id) throw new DocGovError('usage: docgov suppress <FINDING-ID> --reason "why" [--expires YYYY-MM-DD]');
+  if (!id) throw new DocGovError('usage: docgov ignore <FINDING-ID> --reason "why" [--expires YYYY-MM-DD]');
   const entry = supp.add(c.root, c.cfg, { id: String(id), reason: flags.reason, expires: flags.expires ? String(flags.expires) : null, by: flags.by ? String(flags.by) : null });
   if (JSONOUT) return emit(entry) ?? EXIT.OK;
   say(`Suppressed ${entry.id}${entry.expires ? ` until ${entry.expires}` : ''}: ${entry.reason}`);
-  say('It stays visible in `docgov suppress --list` and in every report. Nothing is silently ignored.');
+  say('It stays visible in `docgov ignore --list` and in every report. Nothing is silently ignored.');
   return EXIT.OK;
 }
 
-function cmdReviewPackets() {
+function cmdInspect() {
   const c = ctx();
   const base = flags.base ? String(flags.base) : 'HEAD';
-  const what = flags._[0] || 'drift';
+  const what = flags._[0] || 'stale';
   if (what === 'contradictions') {
     const planPath = path.join(c.root, onboardmod.PLAN_DATA_PATH);
     const pairs = exists(planPath)
@@ -857,7 +857,7 @@ function cmdReviewPackets() {
     const doc = c.docs.find((d) => d.path === p.document);
     p.documentExcerpt = excerpt(doc);
   }
-  emitOrPrint({ kind: 'drift', packets });
+  emitOrPrint({ kind: 'stale', packets });
   return EXIT.OK;
 }
 
@@ -953,10 +953,10 @@ function hookPreWrite(input) {
       permissionDecision: 'deny',
       permissionDecisionReason: [
         `DocGov blocked this write to ${rel}:`,
-        ...blocking.map((r) => `  ${r.rule}: ${r.message}${r.fix ? `\n    → ${r.fix}` : ''}`),
+        ...blocking.map((r) => `  ${r.check}: ${r.message}${r.fix ? `\n    → ${r.fix}` : ''}`),
         '',
         'This is a deterministic rule, not a judgement call. Fix the cause or run',
-        '`docgov suppress <id> --reason "..."` if the rule is wrong here.',
+        '`docgov ignore <id> --reason "..."` if the rule is wrong here.',
       ].join('\n'),
     });
     return EXIT.OK;
@@ -978,10 +978,10 @@ function hookPreWrite(input) {
       const existing = Object.entries(registry.documents).filter(([, e]) => e.type === c.type);
       if (existing.length && def.singleton) guidance.push(`  ⚠ a ${def.label} already exists at ${existing[0][1].path} — update it instead of creating a second one`);
     } else {
-      guidance.push(`DocGov: could not classify ${rel}. Run \`docgov classify --path ${rel}\` or declare docgov.type explicitly.`);
+      guidance.push(`DocGov: could not classify ${rel}. Run \`docgov whatis --path ${rel}\` or declare docgov.type explicitly.`);
     }
   }
-  for (const a of advisory) guidance.push(`DocGov (advisory) ${a.rule}: ${a.message}${a.fix ? ` — ${a.fix}` : ''}`);
+  for (const a of advisory) guidance.push(`DocGov (advisory) ${a.check}: ${a.message}${a.fix ? ` — ${a.fix}` : ''}`);
 
   if (guidance.length) hookOut('PreToolUse', { additionalContext: guidance.join('\n') });
   return EXIT.OK;
@@ -1009,7 +1009,7 @@ function hookPostWrite(input) {
   const dependents = node ? graph.in(node.id, 'depended_on_by').concat(graph.in(node.id, 'depends_on')) : [];
 
   const lines = [`DocGov checked ${rel}:`];
-  for (const f of mine.slice(0, 8)) lines.push(`  ${f.severity} ${f.rule}: ${f.message}${f.fix ? ` (${f.fix})` : ''}`);
+  for (const f of mine.slice(0, 8)) lines.push(`  ${f.severity} ${f.check}: ${f.message}${f.fix ? ` (${f.fix})` : ''}`);
   if (dependents.length) {
     lines.push(`  ${dependents.length} document(s) declare a dependency on this one — check they still agree:`);
     for (const d of dependents.slice(0, 4)) lines.push(`    ${graph.nodes.get(d.from)?.path || d.from}`);
@@ -1027,8 +1027,8 @@ function hookSessionStart(input) {
 
   const L = [];
   L.push(`DocGov is active in this repository (mode: ${cfg.project.mode}, layout: ${cfg.project.layout}).`);
-  L.push(`${ids.length} governed document(s). Before creating documentation, run \`docgov classify --path <file>\`;`);
-  L.push('before editing code in a governed domain, run `docgov context <domain>`.');
+  L.push(`${ids.length} governed document(s). Before creating documentation, run \`docgov whatis --path <file>\`;`);
+  L.push('before editing code in a governed domain, run `docgov brief <domain>`.');
   if (canonical.length) {
     L.push('');
     L.push('Authoritative documents (nothing may contradict these):');
@@ -1083,14 +1083,14 @@ function hookStop(input) {
   const { registry } = reg.build(i.documents, i.contracts);
   const graph = graphmod.build(i.documents, registry, cfg, i.contracts);
   const impact = impactmod.analyze({ root, cfg, docs: i.documents, graph, base: 'HEAD' });
-  const m = impactmod.manifest(impact);
+  const m = impactmod.checklist(impact);
   if (!m.docs.outstanding.length) return EXIT.OK;
   hookOut('Stop', {
     additionalContext: [
       'DocGov: this change has outstanding documentation obligations.',
       ...m.docs.outstanding.map((id) => `  ${id} — ${registry.documents[id]?.path || '(unregistered)'}`),
       'Either update them, or say explicitly why they do not need updating.',
-      'Full picture: docgov impact',
+      'Full picture: docgov affected',
     ].join('\n'),
   });
   return EXIT.OK;
@@ -1118,42 +1118,43 @@ function packageVersion() {
 }
 
 function agentRules(cfg) {
-  return read(new URL('../rules/documentation.md', import.meta.url))
+  return read(new URL('../policy/documentation.md', import.meta.url))
     .replace(/\{\{MODE\}\}/g, cfg.project.mode)
     .replace(/\{\{LAYOUT\}\}/g, cfg.project.layout)
     .replace(/\{\{BLOCKING\}\}/g, (cfg.governance.enforce || []).join(', '));
 }
 
 function usage() {
-  console.log(`docgov ${packageVersion()} — documentation governance for agentic development
+  console.log(`docgov ${packageVersion()} — your AI writes docs faster than anyone can check them. DocGov checks them.
 
-Setup
-  init [--mode M] [--layout full|compact]   establish governance in this repository
-  onboard                                   inventory, classify, and write a migration plan
-  migrate [--dry-run] [--no-branch] [--include split,..]  execute the plan on a branch
+Start here
+  setup [--mode M] [--layout full|compact]   turn DocGov on in this repo
+  review                                     look at the docs you already have, write a fix plan
+  fix [--dry-run] [--include split,..]       run that plan on a branch; reverts itself if it breaks
 
-Authoring
-  types [filter]                            list document classes
-  classify [--path P]                       what is this document, and where does it belong
-  create <type> "<name>" [--domain D]       new document, wired into the graph
-  organize [--apply] [--path P]             add missing frontmatter
+Every day
+  create <type> "<name>" [--domain D]        new doc: right place, right template, already wired up
+  check [--changed] [--base REF] [--all]     the checks that can block you; exit 1 blocks, 2 needs a look
+  affected [--base REF] [paths...]           which docs your change affects
+  checklist [--pr]                           those docs as a checklist; --pr prints the PR comment
+  find "<query>"                             search your docs, best source first
+  whatis [--path P]                          what is this document, and where does it belong
 
-Governance
-  check [--changed] [--base REF] [--all]    deterministic rules; exit 1 blocks, 2 needs review
-  drift [--base REF]                        forward, reverse, contract and dependency drift
-  impact [--base REF] [paths...]            which documents a change affects
-  manifest [--pr]                           change manifest; --pr prints the PR comment
-  health                                    scored documentation health
-  find "<query>"                            authority-ordered search
-  context <topic>                           minimal authoritative context pack for agents
-  invariants [--for paths]                  invariants, or the ones governing given paths
-  publish [--target DIR]                    what is safe to publish, and what leaks
-  suppress <ID> --reason "..." [--expires D] record a deliberate exception
+When something is off
+  stale [--base REF]                         docs the code moved out from under
+  health                                     score your docs out of 100, and what is missing
+  inspect <stale|contradictions|quality>     build a review packet for an agent to read
+  tag [--apply] [--path P]                   add missing frontmatter
+  rules [--for paths]                        the rules your docs declare, and the code they govern
+  ignore <ID> --reason "..." [--expires D]   record a deliberate exception
+  publish [--target DIR]                     what is safe to publish, and what would leak
 
 Plumbing
-  registry [--rebuild]     graph [--dot] [--save]     capabilities     review <drift|contradictions|quality>
+  types [filter]        registry [--rebuild]        graph [--dot] [--save]        tools
   hook <pre-tool|pre-write|post-write|session-start|pre-code-edit|stop>
+  version               help
 
-Every command accepts --json. Exit codes: 0 pass, 1 deterministic violation, 2 review required, 3 config error.`);
+Every command takes --json.
+Exit codes: 0 fine · 1 blocked · 2 needs a look · 3 config error.`);
   return EXIT.OK;
 }

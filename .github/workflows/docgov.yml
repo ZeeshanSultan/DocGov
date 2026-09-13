@@ -35,11 +35,11 @@ jobs:
           echo "docgov check exited $code"
           test "$code" -ne 1
 
-      - name: Drift and impact
+      - name: Stale and affected docs
         if: github.event_name == 'pull_request'
         run: |
-          ./bin/docgov drift --base "origin/${{ github.base_ref }}" || true
-          ./bin/docgov manifest --pr --base "origin/${{ github.base_ref }}" > docgov-report.txt || true
+          ./bin/docgov stale --base "origin/${{ github.base_ref }}" || true
+          ./bin/docgov checklist --pr --base "origin/${{ github.base_ref }}" > docgov-report.txt || true
           cat docgov-report.txt
 
       - name: Post the documentation review

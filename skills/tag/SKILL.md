@@ -1,5 +1,5 @@
 ---
-name: organize
+name: tag
 description: Reorganize existing documentation — add missing frontmatter, split oversized documents, extract overgrown README sections, merge duplicates, and archive superseded documents. Use for "clean up the docs", oversized files, duplicate documents, or after onboarding leaves judgement calls.
 disable-model-invocation: true
 allowed-tools: Bash(docgov *) Bash(git *) Read Write Edit
@@ -10,13 +10,13 @@ argument-hint: "[--path <file>]"
 
 ## State
 
-!`docgov organize --json 2>&1 | head -c 8000`
+!`docgov tag --json 2>&1 | head -c 8000`
 
 ## Mechanical work first
 
-`docgov organize --apply` writes missing frontmatter for everything it can classify
+`docgov tag --apply` writes missing frontmatter for everything it can classify
 confidently. Run it, then report how many documents it annotated. Moves stay with
-`docgov migrate` so that link repair and the move happen in one transaction.
+`docgov fix` so that link repair and the move happen in one transaction.
 
 ## Then the judgement calls, one at a time
 

@@ -1,58 +1,65 @@
 ---
 name: review
-description: Review documentation quality against its audience lens, find contradictions between documents, and check whether another agent could safely act on a document. Use for "review my docs", documentation quality checks, contradiction hunting, or before publishing.
-allowed-tools: Bash(docgov *) Read
-argument-hint: "[--path <file>] [--contradictions] [--lens readme|developer|architecture|security|user|agent|operations]"
+description: Inventory, classify and produce a migration plan for a repository that already has documentation. Detects duplicates, contradictions, oversized documents, wrong locations, missing frontmatter and coverage gaps, then writes a plan that changes nothing until approved. Use for existing repositories, messy documentation trees, or "organize my docs".
+disable-model-invocation: true
+allowed-tools: Bash(docgov *) Bash(git status*) Bash(git log*) Read Write Edit
 ---
 
-# Review documentation
+# Onboard an existing repository
 
-## Deterministic findings (already decided, do not re-litigate)
+## Plan
 
-!`docgov check --json --compact 2>&1 | head -c 10000`
+!`docgov review --json --compact 2>&1 | head -c 24000`
 
-## What to review
+## What to do
 
-Everything above is settled by software. Your job is the part software cannot decide.
-Work only on these four questions, and say plainly when the answer is "this is fine".
+The JSON above is the full plan; `.docgov/fix-plan.md` is the human-readable version.
+**Nothing has been changed.**
 
-### 1. Audience fit — apply the right lens
+1. **Summarize honestly, shortest first.** How many documents, how many DocGov could not
+   classify, how many moves, how many real judgement calls. Do not pad the summary with
+   the things that went fine.
 
-Read the lens for the document's class in `lenses/<lens>.md` and judge against it, not
-against your general taste. The lenses are: `readme`, `developer`, `architecture`,
-`security`, `user`, `agent`, `operations`. A document that is excellent under the wrong
-lens is a defect: an architecture essay inside a getting-started guide fails even if every
-sentence is true.
+2. **Work the low-confidence classifications.** `classifications[]` entries with
+   `needsReview: true` are where the deterministic classifier gave up. Read each document
+   (just enough of it) and decide its class yourself. Run `docgov types` if you need the
+   list. Then write the decision into the document's frontmatter:
 
-### 2. Contradictions
+   ```
+   docgov:
+     id: <kebab-id>
+     type: <class>
+     authority: <from the class>
+     visibility: internal|public|confidential
+   ```
 
-Run `docgov review contradictions --json`. You get narrowed candidate pairs with excerpts,
-not a verdict. For each:
-- **Genuine contradiction** — two documents state incompatible facts. The higher-authority
-  document is presumed right; name which one must change and why.
-- **Equal authority** — no tie-break exists. This is the dangerous case. Escalate it to the
-  user rather than picking.
-- **Acceptable overlap** — different audiences saying the same thing differently. Leave it.
+   Declaring the type is what turns a guess into a fact — the classifier never overrides
+   a declared type.
 
-Quote the conflicting sentences. A contradiction report without the two sentences in it is
-unactionable.
+3. **Adjudicate the contradiction candidates.** `contradictionCandidates[]` is a narrowed
+   list, not a verdict. For each pair, read both and decide: genuine contradiction,
+   acceptable overlap (different audiences saying the same thing in different words), or
+   genuine duplicate. Use the `architect` agent for the non-obvious ones. Only real
+   contradictions need fixing, and the higher-authority document is the one that is right
+   unless you have a reason to think otherwise.
 
-### 3. Agent readiness
+4. **Propose, do not perform, the high-risk actions.** `SPLIT`, `MERGE` and `EXTRACT`
+   rewrite prose. Present them to the user as a short list with your recommendation, and
+   handle them one at a time through `/docgov:tag`.
 
-Could a different agent act on this document without making a wrong assumption? Check for:
-unstated prerequisites, `TBD`/`TODO` that reads as fact, examples that cannot run as
-written, stale version numbers, and claims with no source. This lens matters more every
-month and is the one humans skip.
+5. **When the user approves, run the mechanical half:**
+   ```bash
+   docgov fix --dry-run     # every file operation, nothing touched
+   docgov fix               # on a branch, with link repair and verification
+   ```
+   `migrate` refuses to run without git or with a dirty tree. That is deliberate: the
+   "no information lost" promise is only real if every change is revertible.
 
-### 4. Quality scores — advisory, and say so
+6. **Verify.** After migrating, run `docgov check` and `docgov health`. Report the health
+   score and the top three things that would raise it most.
 
-Run `docgov review quality --json` for the deterministic dimensions (structure, grounding,
-cross-references, freshness). Add your judgement on clarity, completeness, audience fit and
-security reasoning. Present the result as advice with the reasoning attached, never as a
-pass/fail. Do not tell the user a document "scores 87" without saying what the missing 13
-actually is.
+## Do not
 
-## Output
-
-Findings ordered by what you would fix first, each with the file, the line or section, and
-the concrete edit. No scores without reasons. No praise padding.
+Do not move files yourself — `migrate` repairs links in the same transaction and your
+`mv` will not. Do not merge two documents' prose without showing the user what you are
+about to delete.

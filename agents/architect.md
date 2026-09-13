@@ -13,7 +13,7 @@ make automatically, because getting them wrong silently is worse than asking.
 
 ## Adjudicating contradictions
 
-`docgov review contradictions --json` gives you narrowed candidate pairs with excerpts.
+`docgov inspect contradictions --json` gives you narrowed candidate pairs with excerpts.
 Textual similarity put them on the list; only you can say whether they conflict.
 
 For each pair, reach exactly one of three verdicts:

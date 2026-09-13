@@ -25,26 +25,26 @@ export function health({ cfg, docs, inv, graph, registry, findings, stale = [] }
   const staleRisk = stale.length ? Math.round(stale.reduce((a, s) => a + s.risk, 0) / stale.length) : 0;
   const freshness = Math.max(0, 100 - Math.round(staleRisk * (stale.length / n)));
 
-  const byRule = (r) => findings.filter((f) => f.rule === r).length;
+  const byCheck = (c) => findings.filter((f) => f.check === c).length;
   const consistency = clamp(100
-    - byRule('duplicate-id') * 20
-    - byRule('authority-violation') * 20
-    - byRule('unknown-reference') * 8
-    - byRule('duplicate-candidate') * 4
-    - byRule('invalid-relationship') * 4);
+    - byCheck('duplicate-id') * 20
+    - byCheck('authority-violation') * 20
+    - byCheck('unknown-reference') * 8
+    - byCheck('duplicate-candidate') * 4
+    - byCheck('invalid-relationship') * 4);
 
   const structure = clamp(100
-    - byRule('wrong-location') * 6
-    - byRule('hard-limit') * 8
-    - byRule('soft-limit') * 2
-    - byRule('missing-sections') * 3
-    - byRule('new-root-document') * 5);
+    - byCheck('wrong-location') * 6
+    - byCheck('hard-limit') * 8
+    - byCheck('soft-limit') * 2
+    - byCheck('missing-sections') * 3
+    - byCheck('new-root-document') * 5);
 
   const linked = [...inbound.values()].filter((c) => c > 0).length;
-  const discoverability = clamp(Math.round(0.6 * pct(linked, n) + 0.4 * (100 - byRule('missing-index') * 10)));
+  const discoverability = clamp(Math.round(0.6 * pct(linked, n) + 0.4 * (100 - byCheck('missing-index') * 10)));
 
   const withRels = docs.filter((d) => Object.keys(d.relationships).length > 0).length;
-  const crossLinking = clamp(Math.round(0.5 * pct(withRels, n) + 0.5 * (100 - byRule('broken-link') * 8)));
+  const crossLinking = clamp(Math.round(0.5 * pct(withRels, n) + 0.5 * (100 - byCheck('broken-link') * 8)));
 
   const canonical = docs.filter((d) => (AUTHORITY[d.authority]?.rank ?? 9) <= 1);
   const canonicalIntegrity = clamp(100
@@ -53,8 +53,8 @@ export function health({ cfg, docs, inv, graph, registry, findings, stale = [] }
     - canonical.filter((d) => !d.registered).length * 10);
 
   const metadata = clamp(Math.round(pct(registered, n)
-    - byRule('missing-visibility') * 2
-    - byRule('missing-owner') * 2));
+    - byCheck('missing-visibility') * 2
+    - byCheck('missing-owner') * 2));
 
   const components = { coverage: clamp(coverage), freshness, consistency, structure, discoverability,
     'cross-linking': crossLinking, 'canonical integrity': canonicalIntegrity, metadata };
@@ -67,12 +67,12 @@ export function health({ cfg, docs, inv, graph, registry, findings, stale = [] }
     overall, components,
     issues: {
       stale: stale.filter((s) => s.risk >= (cfg.drift?.stale_threshold ?? 60)).length,
-      oversized: byRule('hard-limit') + byRule('soft-limit'),
-      orphans: byRule('orphan'),
-      brokenLinks: byRule('broken-link'),
-      unclassified: byRule('unclassified'),
-      missingCrossReferences: byRule('unknown-reference'),
-      duplicateCandidates: byRule('duplicate-candidate'),
+      oversized: byCheck('hard-limit') + byCheck('soft-limit'),
+      orphans: byCheck('orphan'),
+      brokenLinks: byCheck('broken-link'),
+      unclassified: byCheck('unclassified'),
+      missingCrossReferences: byCheck('unknown-reference'),
+      duplicateCandidates: byCheck('duplicate-candidate'),
       coverageGaps: gaps.length,
     },
     gaps,
@@ -89,8 +89,8 @@ export function qualityFloor({ cfg, doc, findings }) {
   const threshold = qualityFor(cfg, doc.type);
   const { soft, hard } = limitFor(cfg, doc.type);
   const structure = clamp(100 - doc.missingSections().length * 12 - (hard && doc.lines > hard ? 20 : 0));
-  const grounding = clamp(100 - mine.filter((f) => f.rule === 'broken-link').length * 15
-    - mine.filter((f) => f.rule === 'unknown-reference').length * 10);
+  const grounding = clamp(100 - mine.filter((f) => f.check === 'broken-link').length * 15
+    - mine.filter((f) => f.check === 'unknown-reference').length * 10);
   const crossRefs = clamp(Object.keys(doc.relationships).length ? 100 : 55);
   const freshness = doc.status === 'draft' ? 60 : 100;
   return {

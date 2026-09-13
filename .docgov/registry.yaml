@@ -7,8 +7,8 @@ documents:
     visibility: public
     title: Architecture
     owner: docgov
-    hash: aa4d4ad13e8e87fb
-    lines: 120
+    hash: c97fb14f909287a2
+    lines: 121
     relationships:
       implements:
         - docgov-prd
@@ -16,22 +16,36 @@ documents:
         - docgov-feasibility
   changelog:
     path: CHANGELOG.md
-    type: release.notes
+    type: release.changelog
     authority: historical
     visibility: public
     registered_in: config
     title: Changelog
     owner: docgov
-    hash: aae19fc4f76501e7
-    lines: 74
+    hash: 9cb07f46f2eff022
+    lines: 125
   code-of-conduct:
     path: CODE_OF_CONDUCT.md
-    type: unknown
-    authority: historical
-    visibility: internal
+    type: governance.code-of-conduct
+    authority: audience
+    visibility: public
+    registered_in: config
     title: Code of conduct
+    owner: docgov
     hash: 13b6829d244e261f
     lines: 44
+  commands:
+    path: docs/reference/commands.md
+    type: user.reference
+    authority: generated
+    visibility: public
+    title: Commands
+    owner: docgov
+    hash: 3d6d956ab7835ce0
+    lines: 375
+    relationships:
+      depends_on:
+        - architecture-overview
   contributing:
     path: CONTRIBUTING.md
     type: governance.contributing
@@ -49,7 +63,7 @@ documents:
     visibility: public
     title: Development
     owner: docgov
-    hash: 5e628c7b9929ef34
+    hash: bf90ee0d8f657e7a
     lines: 122
     relationships:
       depends_on:
@@ -61,7 +75,7 @@ documents:
     visibility: internal
     title: "DocGov — Technical Feasibility Assessment"
     owner: docgov
-    hash: d447a340bc80e2fc
+    hash: 84c1c41dc7013408
     lines: 232
     relationships:
       implements:
@@ -71,10 +85,37 @@ documents:
     type: product.prd
     authority: requirements
     visibility: internal
-    title: PRD
+    title: "DocGov — product requirements"
     owner: docgov
-    hash: 9d7de81ce1b419cd
-    lines: 1809
+    hash: b61d3f12f20718f3
+    lines: 277
+    relationships:
+      depends_on:
+        - docgov-vision
+  docgov-roadmap:
+    path: docs/product/roadmap.md
+    type: product.roadmap
+    authority: requirements
+    visibility: internal
+    title: "DocGov — roadmap"
+    owner: docgov
+    hash: 731f39a8306f95b4
+    lines: 68
+    relationships:
+      depends_on:
+        - docgov-prd
+  docgov-vision:
+    path: docs/product/vision.md
+    type: product.vision
+    authority: requirements
+    visibility: internal
+    title: "DocGov — product vision"
+    owner: docgov
+    hash: 9629aeb5e3017239
+    lines: 70
+    relationships:
+      depends_on:
+        - docgov-prd
   docs-index:
     path: docs/README.md
     type: docs.index
@@ -93,6 +134,96 @@ documents:
     title: Policy packs
     hash: 43e78c1108d83d14
     lines: 57
+  prd-adoption:
+    path: docs/product/prd/adoption.md
+    type: product.feature
+    authority: requirements
+    visibility: internal
+    title: "PRD — Adoption and onboarding"
+    owner: docgov
+    hash: 4195f06c758da6fc
+    lines: 260
+    relationships:
+      implements:
+        - docgov-prd
+  prd-boundaries:
+    path: docs/product/prd/boundaries.md
+    type: product.feature
+    authority: requirements
+    visibility: internal
+    title: "PRD — Audience, visibility and discovery"
+    owner: docgov
+    hash: a1e6c263c3edfe6b
+    lines: 229
+    relationships:
+      implements:
+        - docgov-prd
+  prd-conventions:
+    path: docs/product/prd/conventions.md
+    type: product.feature
+    authority: requirements
+    visibility: internal
+    title: "PRD — Document conventions"
+    owner: docgov
+    hash: c655aff97fc378c7
+    lines: 293
+    relationships:
+      implements:
+        - docgov-prd
+  prd-enforcement:
+    path: docs/product/prd/enforcement.md
+    type: product.feature
+    authority: requirements
+    visibility: internal
+    title: "PRD — Enforcement and drift"
+    owner: docgov
+    hash: 43dc1b63ad88e16f
+    lines: 406
+    relationships:
+      implements:
+        - docgov-prd
+  prd-index:
+    path: docs/product/prd/README.md
+    type: docs.index
+    authority: audience
+    visibility: internal
+    title: PRD parts
+    owner: docgov
+    hash: 298a908057d83de3
+    lines: 29
+  prd-model:
+    path: docs/product/prd/model.md
+    type: product.feature
+    authority: requirements
+    visibility: internal
+    title: "PRD — The documentation model"
+    owner: docgov
+    hash: f01edc928f60418c
+    lines: 419
+    relationships:
+      implements:
+        - docgov-prd
+  prd-system:
+    path: docs/product/prd/system.md
+    type: product.feature
+    authority: requirements
+    visibility: internal
+    title: "PRD — System design and operation"
+    owner: docgov
+    hash: 42dc6f3daff61724
+    lines: 391
+    relationships:
+      implements:
+        - docgov-prd
+  product-index:
+    path: docs/product/README.md
+    type: docs.index
+    authority: audience
+    visibility: internal
+    title: Product documentation
+    owner: docgov
+    hash: cea4b98542edc445
+    lines: 23
   readme:
     path: README.md
     type: user.readme
@@ -101,8 +232,8 @@ documents:
     registered_in: config
     title: DocGov
     owner: docgov
-    hash: e12a59cd06f32bd9
-    lines: 185
+    hash: f0217a3cfdff3641
+    lines: 134
   schemas-config:
     path: schemas/config.json
     type: contract.schema
@@ -132,7 +263,7 @@ documents:
     visibility: public
     title: Testing strategy
     owner: docgov
-    hash: 33ebe52ec501580d
+    hash: 23a4b67a234bbf1e
     lines: 90
     relationships:
       depends_on:

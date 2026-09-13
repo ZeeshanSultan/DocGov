@@ -5,10 +5,10 @@ import { matchAny } from './util.js';
 import { MD_RE, CONTRACT_RE, TEST_RE, isCode, isMappable } from './paths.js';
 
 /**
- * Change impact analysis (PRD §25) and the documentation change manifest (PRD §27).
+ * Change impact analysis (PRD §25) and the documentation change checklist (PRD §27).
  *
  * Impact is a graph reachability question, so it is fully deterministic. The
- * manifest turns the answer into a checklist an agent can work through and a
+ * checklist turns the answer into a checklist an agent can work through and a
  * CI job can verify.
  */
 
@@ -94,8 +94,8 @@ function level(affected, s) {
   return 'NONE';
 }
 
-/** PRD §27 manifest: a deterministic checklist, written to .docgov/manifest.yaml. */
-export function manifest(impact) {
+/** PRD §27 manifest: a deterministic checklist, written to .docgov/checklist.yaml. */
+export function checklist(impact) {
   const required = impact.affected.filter((a) => a.required);
   return {
     change: {
@@ -118,7 +118,7 @@ export function manifest(impact) {
 
 /** The PR comment body (PRD §26). Deterministic; blocking is the caller's choice. */
 export function prReport(impact, drift, cfg) {
-  const m = manifest(impact);
+  const m = checklist(impact);
   const L = [];
   L.push('DocGov Documentation Review');
   L.push('───────────────────────────');
@@ -142,5 +142,5 @@ export function prReport(impact, drift, cfg) {
   const blocked = m.docs.outstanding.length > 0 && !cfg.governance.warn_only;
   L.push(`Documentation readiness: ${blocked ? 'REVIEW REQUIRED' : 'OK'}`);
   if (blocked) L.push(`Outstanding: ${m.docs.outstanding.join(', ')}`);
-  return { text: L.join('\n'), manifest: m, blocked };
+  return { text: L.join('\n'), checklist: m, blocked };
 }

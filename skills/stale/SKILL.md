@@ -1,5 +1,5 @@
 ---
-name: drift
+name: stale
 description: Detect documentation drift — implementation changed but documentation did not, documentation changed but implementation did not, machine contracts ahead of their derived docs, and semantic staleness. Use for "are my docs still true", before a release, or after a large change.
 allowed-tools: Bash(docgov *) Bash(git diff*) Bash(git log*) Read
 argument-hint: "[--base main]"
@@ -9,7 +9,7 @@ argument-hint: "[--base main]"
 
 ## Deterministic drift report
 
-!`docgov drift --json --compact $ARGUMENTS 2>&1 | head -c 14000`
+!`docgov stale --json --compact $ARGUMENTS 2>&1 | head -c 14000`
 
 ## What this report is, and is not
 
@@ -22,7 +22,7 @@ That is your job, and it needs the diff.
 
 ## Confirm each finding
 
-Run `docgov review drift --json` for review packets: each finding comes with the relevant
+Run `docgov inspect stale --json` for review packets: each finding comes with the relevant
 diff hunks and the document excerpt, so you read kilobytes instead of the repository.
 
 For each packet decide one of three things and say which:
@@ -51,5 +51,5 @@ entries whose signals you can explain.
 
 ## If a finding is wrong
 
-`docgov suppress DRIFT-xxxxx --reason "..." [--expires YYYY-MM-DD]`. It stays visible in
+`docgov ignore DRIFT-xxxxx --reason "..." [--expires YYYY-MM-DD]`. It stays visible in
 every report. Suppress the finding, never the rule.

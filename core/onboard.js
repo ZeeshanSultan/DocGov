@@ -10,16 +10,16 @@ import { locationFor } from './config.js';
 import { matchAny, table, plural } from './util.js';
 
 /**
- * Existing-project onboarding (PRD §15, §44).
+ * Existing-project review (PRD §15, §44).
  *
  * The hard rule: this produces a plan and changes nothing. The plan is a file a
- * human reads and edits; `docgov migrate` executes exactly what the plan says.
+ * human reads and edits; `docgov fix` executes exactly what the plan says.
  * Separating proposal from execution is what makes the "without losing
  * information" promise checkable rather than aspirational.
  */
 
-export const PLAN_PATH = '.docgov/onboarding-plan.md';
-export const PLAN_DATA_PATH = '.docgov/onboarding-plan.json';
+export const PLAN_PATH = '.docgov/fix-plan.md';
+export const PLAN_DATA_PATH = '.docgov/fix-plan.json';
 
 /**
  * @param {{root:string, cfg:object, docs:any[], inv:object, graph:any, registry:object}} ctx
@@ -139,16 +139,16 @@ function stripFile(p) { return p.replace(/\.mdx?$/, ''); }
 export function render(planData, cfg) {
   const L = [];
   const s = planData.summary;
-  L.push('# DocGov onboarding plan');
+  L.push('# DocGov fix plan');
   L.push('');
   L.push(`Generated ${planData.generated.slice(0, 19).replace('T', ' ')} · layout \`${planData.layout}\` · mode \`${planData.mode}\``);
   L.push('');
   L.push('**Nothing has changed yet.** This plan is a proposal. Edit it freely — delete any action you');
-  L.push('disagree with — then run `docgov migrate` to execute exactly what remains.');
+  L.push('disagree with — then run `docgov fix` to execute exactly what remains.');
   L.push('');
 
   if (!planData.git.repo) {
-    L.push('> ⚠ This is not a git repository. `docgov migrate` refuses to run without git, because the');
+    L.push('> ⚠ This is not a git repository. `docgov fix` refuses to run without git, because the');
     L.push('> only honest way to promise "without losing information" is to make every change revertible.');
     L.push('');
   } else if (!planData.git.clean) {
@@ -207,7 +207,7 @@ export function render(planData, cfg) {
     L.push('## Suspected contradictions');
     L.push('');
     L.push('Textual overlap narrows the candidates; only a reviewer can confirm a real contradiction.');
-    L.push('Run `/docgov:review --contradictions` to have the architect agent adjudicate these pairs.');
+    L.push('Run `/docgov:inspect --contradictions` to have the architect agent adjudicate these pairs.');
     L.push('');
     for (const c of planData.contradictionCandidates.slice(0, 12)) {
       L.push(`- \`${c.a}\` (${c.authorityA}) vs \`${c.b}\` (${c.authorityB}) — ${Math.round(c.score * 100)}% overlap. ${c.note}`);
@@ -236,13 +236,13 @@ export function render(planData, cfg) {
   L.push('## Execute');
   L.push('');
   L.push('```bash');
-  L.push('docgov migrate --dry-run   # show every file operation, touch nothing');
-  L.push('docgov migrate             # on a new branch, mechanical actions only');
-  L.push('docgov migrate --include split,merge,extract   # also the judgement calls, one at a time');
+  L.push('docgov fix --dry-run   # show every file operation, touch nothing');
+  L.push('docgov fix             # on a new branch, mechanical actions only');
+  L.push('docgov fix --include split,merge,extract   # also the judgement calls, one at a time');
   L.push('```');
   L.push('');
   L.push('`migrate` runs MOVE, ANNOTATE and ARCHIVE automatically and repairs every internal link.');
-  L.push('SPLIT, MERGE and EXTRACT are left to `/docgov:organize`, which uses an agent to rewrite prose.');
+  L.push('SPLIT, MERGE and EXTRACT are left to `/docgov:tag`, which uses an agent to rewrite prose.');
   return L.join('\n');
 }
 

@@ -11,19 +11,103 @@ with a migration note.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.2.0] — 2026-09-13
+
+### Changed
+
+- **Every command was renamed.** Breaking, deliberately, and without aliases — nothing depends
+  on the old names yet and they were the single biggest barrier to anyone understanding this
+  tool. `init` and `onboard` in particular were indistinguishable to a first-time reader, and
+  `organize` described something it has never done: it adds frontmatter and has never moved a
+  file.
+
+  | Old | New | |
+  |---|---|---|
+  | `init` | `setup` | |
+  | `onboard` | `review` | it reviews the docs you have and writes a plan |
+  | `migrate` | `fix` | it executes that plan |
+  | `review` | `inspect` | the LLM review packets; sub-argument `drift` is now `stale` |
+  | `organize` | `tag` | it adds frontmatter, nothing more |
+  | `suppress` | `ignore` | |
+  | `manifest` | `checklist` | |
+  | `classify` | `whatis` | |
+  | `drift` | `stale` | |
+  | `impact` | `affected` | |
+  | `context` | `brief` | |
+  | `capabilities` | `tools` | |
+  | `invariants` | `rules` | |
+
+  Slash commands moved with them: `/docgov:onboard` is now `/docgov:review`, and so on.
+
+  State files moved too: `.docgov/onboarding-plan.{md,json}` → `.docgov/fix-plan.{md,json}`,
+  `.docgov/manifest.yaml` → `.docgov/checklist.yaml`, `.docgov/capabilities.json` →
+  `.docgov/tools.json`. The `manifest` key in `affected --json` and `checklist --json` is now
+  `checklist`.
+
+  **Migrating:** delete `.docgov/onboarding-plan.*` and re-run `docgov review`. Nothing else
+  carries over, and nothing else needs to.
+
+- **The README was rewritten for the people who actually use this.** It was 184 lines of
+  architecture written for someone who already knew what a documentation authority graph was.
+  It is now 130 lines that answer what this is, what it looks like running, and how to start —
+  and it passes `lenses/readme.md`, which it previously did not.
+- One product description now, used everywhere, instead of five different ones across the
+  README, `package.json`, the plugin manifest, the marketplace manifest and the CLI banner.
+
+- **The `rules` collision was removed at the root, not papered over.** `docgov rules` now means
+  one thing. What `check` reports are **checks**, not rules: `RULES` became `CHECKS`, the
+  finding field `rule` became `check`, and the summary key `byRule` became `byCheck` — so
+  `docgov check --json` now emits `"check"` where it emitted `"rule"`. DocGov's own `rules/`
+  source directory became `policy/`. The install destination stays `.claude/rules/`, which is
+  Claude Code's namespace rather than DocGov's. Suppression ids are unaffected: they hash the
+  finding's *value*, not the field name.
+- **The PRD was rewritten and split.** It was 1,808 lines of pasted chat transcript — no
+  headings, no code fences, `⸻` separators, opening mid-conversation — which is why it was
+  failing its own size limit and reporting 13 missing sections. It is now a 276-line
+  requirements document with all 13 sections, plus [vision](docs/product/vision.md),
+  [roadmap](docs/product/roadmap.md) and six specification parts under
+  [docs/product/prd/](docs/product/prd/README.md). All 27 original goals and 9 non-goals are
+  preserved; only the chat preamble was dropped.
+- The roadmap no longer describes V1/V2/V3. V1 and V2 both shipped in 0.1.0, so it now states
+  what is actually shipped, next, later and not planned.
+
+### Added
+
+- **Published to npm as `docgov-cli`.** npm refuses the name `docgov` as too similar to
+  `docco` and `doctoc`, so the package carries the `-cli` suffix. The binary it installs is
+  still `docgov`, and the Claude Code plugin is still `docgov` — those are separate namespaces.
+- **Two document classes the taxonomy was missing.** `governance.code-of-conduct`, because
+  `CODE_OF_CONDUCT.md` is one of the six standard community health files and the taxonomy could
+  only classify it as a Policy belonging in `docs/governance/` — where a code host will not
+  render it. And `release.changelog`, because Keep a Changelog structures a changelog by release
+  rather than by fixed sections, and DocGov adopts established conventions rather than competing
+  with them.
+- **DocGov's own repository now passes `docgov check --all` with no findings at all** for the
+  first time.
+
+- `docs/reference/commands.md` — every command documented: what it does, its flags, what it
+  writes to disk, and its exit codes.
+- `version` and `help` now appear in `docgov help`, which they never did.
+- `--version` / `-v` and `--help` / `-h` as aliases for the `version` and `help` commands.
+
 ### Fixed
 
-- **Drift and impact were blind to extensionless files.** Both gated their graph lookup on a
+- **`checklist --write` could not be turned off.** The guard tested `flags.write !== false`,
+  but `--no-write` sets `flags.no_write` and `--write false` yields the string `'false'`, so
+  neither route worked and the file was always written. `--no-write` now works.
+- `core/migrate.js` hardcoded `.docgov/onboarding-plan.json` in its collision error instead of
+  using `PLAN_DATA_PATH`, printing a wrong path in the one message you see at exactly the
+  moment you need to edit that file. It imports the constant now.
+- The README claimed 56 document classes and 60 tests. There are 57 and 63.
+- **Stale and affected were blind to extensionless files.** Both gated their graph lookup on a
   source-extension list before asking whether any document claimed the path, so every
   extensionless executable, shell script, `Dockerfile` and `Makefile` a document had
   explicitly mapped was silently skipped — DocGov's own `bin/docgov` included, meaning the
   engine could not see changes to itself. The mapping lookup now consults the graph directly;
   extension matching is confined to the "did behaviour change" heuristic, where a false
   negative costs nothing. Path predicates now live once in `core/paths.js`.
-
-### Added
-
-- `--version` / `-v` and `--help` / `-h` as aliases for the `version` and `help` commands.
 
 ## [0.1.0] — 2026-09-13
 

@@ -74,7 +74,7 @@ snapshots. The test file is readable top to bottom and every helper is in it.
 
 ```bash
 npm test
-node --test --test-name-pattern='migrate' test/*.test.js
+node --test --test-name-pattern='fix' test/*.test.js
 ```
 
 ## Gates

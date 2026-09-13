@@ -1,18 +1,29 @@
 {
   "name": "docgov-marketplace",
-  "owner": { "name": "DocGov" },
+  "owner": {
+    "name": "DocGov"
+  },
   "metadata": {
-    "description": "Documentation governance for agentic development.",
-    "version": "0.1.0"
+    "description": "Your AI writes docs faster than anyone can check them. DocGov checks them.",
+    "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "docgov",
       "source": "./",
-      "description": "Documentation governance: taxonomy, authority graph, invariant injection, drift detection, and deterministic gates that run on every write.",
-      "version": "0.1.0",
+      "description": "Your AI writes docs faster than anyone can check them. DocGov checks them — catches stale docs, duplicate files, and docs that contradict your code. Claude Code plugin + CLI.",
+      "version": "0.2.0",
       "category": "documentation",
-      "keywords": ["documentation", "governance", "drift", "architecture", "adr", "docs-as-code"]
+      "keywords": [
+        "documentation",
+        "docs",
+        "ai",
+        "claude-code",
+        "drift",
+        "stale-docs",
+        "adr",
+        "docs-as-code"
+      ]
     }
   ]
 }

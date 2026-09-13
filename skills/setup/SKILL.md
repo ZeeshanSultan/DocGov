@@ -1,5 +1,5 @@
 ---
-name: init
+name: setup
 description: Establish DocGov documentation governance in this repository — infer the project mode and layout, create the taxonomy namespaces, install agent documentation rules, and build the initial registry and graph. Use when a repository has no .docgov/config.yaml yet.
 disable-model-invocation: true
 allowed-tools: Bash(docgov *) Read Write Edit
@@ -10,11 +10,11 @@ argument-hint: "[--mode solo|team|enterprise|open-source] [--layout full|compact
 
 ## Current repository
 
-!`docgov capabilities --json 2>/dev/null || echo '{}'`
+!`docgov tools --json 2>/dev/null || echo '{}'`
 
 ## What to do
 
-1. **Run `docgov init $ARGUMENTS`.** It infers mode from the repository (a LICENSE plus
+1. **Run `docgov setup $ARGUMENTS`.** It infers mode from the repository (a LICENSE plus
    CONTRIBUTING means open-source; CODEOWNERS means team) and layout from document count.
    Report what it inferred and why, in one line each.
 
@@ -39,11 +39,11 @@ argument-hint: "[--mode solo|team|enterprise|open-source] [--layout full|compact
        owner: platform
    ```
 
-   Domains are what make `docgov context <domain>` and invariant injection work. Without
+   Domains are what make `docgov brief <domain>` and invariant injection work. Without
    them most of DocGov's value stays switched off. This is the highest-leverage thing to
    get right during setup.
 
-4. **Then run `/docgov:onboard`** if documentation already exists, or `/docgov:create` for
+4. **Then run `/docgov:review`** if documentation already exists, or `/docgov:create` for
    the first document if not.
 
 ## Do not

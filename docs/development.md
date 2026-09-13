@@ -113,7 +113,7 @@ you keep the built-in exclusions for agent infrastructure.
 aliases, tags, block scalars and tabs rather than guess. The error names the line. This is
 deliberate: see [FEASIBILITY.md](FEASIBILITY.md) §4.
 
-**`migrate` refuses to run.** It needs git and a tree clean of everything except `.docgov/`.
+**`fix` refuses to run.** It needs git and a tree clean of everything except `.docgov/`.
 The error lists the uncommitted paths.
 
 **A classification is wrong.** Declare the type in frontmatter — a declared type always wins

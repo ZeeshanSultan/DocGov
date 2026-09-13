@@ -287,6 +287,15 @@ export const TYPES = {
     quality: 75, visibility: 'public', template: 'tier7/release-notes',
     sections: ['Highlights', 'Changes', 'Breaking changes', 'Upgrade notes'],
   },
+  'release.changelog': {
+    label: 'Changelog', authority: 'historical', lens: 'user',
+    full: 'CHANGELOG.md', compact: 'CHANGELOG.md', singleton: true, soft: 500, hard: 2000,
+    quality: 75, visibility: 'public', template: 'tier6/changelog',
+    // Keep a Changelog structures a changelog by release, not by fixed sections. DocGov
+    // adopts that convention rather than competing with it, so the structural gate here is
+    // location and size, not section names.
+    sections: [],
+  },
   'release.migration': {
     label: 'Migration Guide', authority: 'audience', lens: 'user',
     full: 'docs/07-release/migrations/', compact: 'docs/release/', soft: 500, hard: 800,
@@ -355,6 +364,12 @@ export const TYPES = {
     quality: 85, visibility: 'public', template: 'tier6/contributing',
     sections: ['Before you start', 'Development setup', 'Submitting changes', 'Review process'],
   },
+  'governance.code-of-conduct': {
+    label: 'Code of Conduct', authority: 'audience', lens: 'user',
+    full: 'CODE_OF_CONDUCT.md', compact: 'CODE_OF_CONDUCT.md', singleton: true, soft: 200, hard: 400,
+    quality: 80, visibility: 'public', template: 'tier6/code-of-conduct',
+    sections: ['What is expected', 'What is not acceptable', 'Scope', 'Reporting'],
+  },
   'governance.support': {
     label: 'Support Policy', authority: 'audience', lens: 'user',
     full: 'docs/09-governance/support/', compact: 'SUPPORT.md', soft: 200, hard: 400,
@@ -416,7 +431,7 @@ export const TYPES = {
   },
 };
 
-/** Namespaces created by `docgov init --layout full` (PRD §6: may stay empty). */
+/** Namespaces created by `docgov setup --layout full` (PRD §6: may stay empty). */
 export const FULL_NAMESPACES = [
   'docs/00-canonical', 'docs/01-product/vision', 'docs/01-product/requirements',
   'docs/01-product/features', 'docs/01-product/personas', 'docs/01-product/roadmap',

@@ -79,7 +79,7 @@ export function inventory(root, cfg) {
 /**
  * Documentation the repository's stack implies but which no document covers (PRD §16).
  *
- * Uses the *inferred* class, not only the declared one: before onboarding nothing is
+ * Uses the *inferred* class, not only the declared one: before `docgov review` runs nothing is
  * annotated, and reporting an existing README as a missing README would make the first
  * health score anyone ever sees wrong.
  */

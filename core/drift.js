@@ -1,7 +1,7 @@
 import { changedFiles, lastCommitDate, commitsSince, isRepo, diffFor } from './git.js';
 import { codeNodesFor } from './graph.js';
 import { matchAny } from './util.js';
-import { AUTHORITY } from './taxonomy.js';
+import { AUTHORITY, isCurrent } from './taxonomy.js';
 import { parseFrom as parseInvariants } from './invariants.js';
 import { MD_RE, CONTRACT_RE, isMappable } from './paths.js';
 
@@ -50,6 +50,10 @@ export function analyze({ root, cfg, docs, graph, base = 'HEAD' }) {
   }
   for (const [docPath, { docNode, files }] of impactedByDoc) {
     if (changedDocs.has(docPath)) continue;                     // moved together: no drift
+    // A superseded or deprecated document is not trying to describe today's code. Reporting
+    // it as drifting asks somebody to re-sync a document whose whole point is that it is
+    // finished, and buries the findings that do need attention.
+    if (!isCurrent(byPath.get(docPath))) continue;
     const doc = byPath.get(docPath);
     findings.push({
       id: null, kind: 'forward', severity: severityFor(docNode.authority, files.length),

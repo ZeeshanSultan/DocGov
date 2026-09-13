@@ -22,6 +22,20 @@ export const AUTHORITY = {
 
 export const VISIBILITY = ['public', 'internal', 'confidential', 'generated-public', 'generated-internal'];
 export const STATUS = ['draft', 'active', 'deprecated', 'superseded', 'archived'];
+
+/**
+ * Statuses that mean "this document is no longer what to follow". A superseded document is
+ * usually still *true about the past*, which is exactly what makes it dangerous: nothing in
+ * its prose says it has been replaced, so it reads as current to anyone — and to any agent —
+ * that finds it. It stays in the repository as a record and stays out of anything that
+ * answers "what is true now".
+ */
+export const HISTORICAL_STATUS = new Set(['superseded', 'deprecated', 'archived']);
+
+/** Is this document still the one to follow? */
+export function isCurrent(doc) {
+  return !HISTORICAL_STATUS.has(doc?.status);
+}
 export const MODES = ['solo', 'team', 'enterprise', 'open-source'];
 
 /** PRD §8 relationship edges. `inverse` powers reverse traversal in the graph. */

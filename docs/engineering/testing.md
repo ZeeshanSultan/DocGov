@@ -44,6 +44,8 @@ commit real files, and run the real binary as a subprocess.
 - **Every template against its own gate.** The test *every document class produces a document
   that satisfies its own gate* is what keeps every class honest — adding a class with mismatched
   sections fails immediately.
+- **That a superseded document is withheld from a context pack and named**, and that its prose
+  never reaches the agent — the assertion that matters is the last one.
 - **That every persisted artifact declares a version**, that one from a newer DocGov is
   refused with a message naming both versions, and that a file predating the check still
   loads — the last is the one that matters, because it is every existing adopter.

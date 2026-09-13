@@ -44,6 +44,10 @@ commit real files, and run the real binary as a subprocess.
 - **Every template against its own gate.** The test *every document class produces a document
   that satisfies its own gate* is what keeps every class honest — adding a class with mismatched
   sections fails immediately.
+- **That a plan is runnable.** Two documents with one canonical destination get distinct
+  paths rather than colliding, a fixed-path class keeps one holder and leaves the rest alone,
+  and `fix --dry-run` exits 0 in both cases. The assertion that matters is the last one: a
+  plan nobody can execute is not a plan.
 - **That a plan says when it cannot run.** Two documents proposed for one destination, and
   a destination that already exists — `review` must name both, and flag the actions, rather
   than leaving `fix` to discover it at execution. Also that test fixtures and `testdata/`

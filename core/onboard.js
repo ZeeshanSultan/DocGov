@@ -105,6 +105,56 @@ export function plan({ root, cfg, docs, inv, graph, registry }) {
           : `${ra < rb ? p.a : p.b} wins a contradiction` };
     });
 
+  // Two documents sharing a basename in different directories both resolve to
+  // `<canonical dir>/<basename>`, so the destination rule collides with itself: one
+  // repository produced 29 of these, which made its whole plan unrunnable. Where the
+  // class has a directory to put things in, keep enough of the source path to tell them
+  // apart — `core/docs/policy.md` becomes `…/policies/core/policy.md` rather than
+  // fighting `how-tos-site/…/policy.md` for `…/policies/policy.md`. The leading segment
+  // is used because in a monorepo it names the module the document belongs to.
+  const moved = new Set(actions.filter((x) => x.kind === 'MOVE' && x.to && x.to !== x.path)
+    .map((x) => x.path));
+  const taken = new Set(docs.map((d) => d.path).filter((x) => !moved.has(x)));
+  const byDest = new Map();
+  for (const a of actions) {
+    if (!(a.kind === 'MOVE' && a.to && a.to !== a.path)) continue;
+    if (!byDest.has(a.to)) byDest.set(a.to, []);
+    byDest.get(a.to).push(a);
+  }
+  for (const [dest, group] of byDest) {
+    // Occupied when something is already there that is not itself leaving.
+    const occupied = taken.has(dest) || (exists(path.join(root, dest)) && !moved.has(dest));
+    if (group.length === 1 && !occupied) { taken.add(dest); continue; }
+
+    const loc = locationFor(cfg, group[0].type);
+    if (!loc || !loc.endsWith('/')) {
+      // A fixed path — a single-document class. At most one document can hold it, and if
+      // something is already there that is staying, none of these may. The rest are left
+      // exactly where they are rather than moved onto each other.
+      const keep = occupied ? null : group[0];
+      for (const a of group) {
+        if (a === keep) { taken.add(dest); continue; }
+        a.kind = 'CLASSIFY'; a.to = a.path; a.requiresJudgement = true; a.risk = 'medium';
+        a.reason = `\`${dest}\` holds one document and is already claimed — left in place for you to decide`;
+      }
+      continue;
+    }
+
+    // A directory class: keep enough of the source path to tell them apart. The leading
+    // segment is used because in a monorepo it names the module the document belongs to.
+    for (const a of group) {
+      if (group.length === 1 && !occupied) { taken.add(dest); continue; }
+      const base = path.posix.basename(a.path);
+      const segs = path.posix.dirname(a.path).split('/').filter((x) => x && x !== '.');
+      let picked = null;
+      for (let n = 1; n <= segs.length && !picked; n++) {
+        const cand = `${loc}${segs.slice(0, n).join('/')}/${base}`;
+        if (!taken.has(cand) && !(exists(path.join(root, cand)) && !moved.has(cand))) picked = cand;
+      }
+      if (picked) { a.to = picked; a.disambiguated = true; taken.add(picked); }
+    }
+  }
+
   // Destination collisions, found while the plan is still a plan. `migrate` refuses to
   // execute these — two documents at one path would destroy one of them — but it only
   // discovers them at execution, after the user has read the plan and decided to trust

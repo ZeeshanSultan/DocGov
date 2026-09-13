@@ -10,7 +10,7 @@ import * as yaml from '../core/yaml.js';
 import * as fm from '../core/frontmatter.js';
 import { Document } from '../core/document.js';
 import { classify, destinationFor } from '../core/classify.js';
-import { globToRegExp, matchGlob } from '../core/util.js';
+import { globToRegExp, matchGlob, write } from '../core/util.js';
 import { collect as collectInvariants, applicable, render as renderInvariants } from '../core/invariants.js';
 import { similarPairs } from '../core/similarity.js';
 import { rewriteLinks, brokenLinks } from '../core/links.js';
@@ -2041,4 +2041,95 @@ test('check reports a competing cluster once, not once per pair', () => {
   assert.equal(found.length, 1, 'three guides are one problem, not three pairs');
   assert.deepEqual(found[0].others, ['docs/guides/local-setup.md']);
   assert.equal(found[0].blocking, false, 'whether two documents should be one is a judgement call');
+});
+
+// --- several agents in one repository ------------------------------------------------
+
+test('a write is atomic: the target is the old file or the new one, never a partial one', () => {
+  const dir = tmpRepo();
+  const target = path.join(dir, 'a.md');
+  fs.writeFileSync(target, 'original\n');
+
+  // A failing write must leave the original intact and no debris beside it. `writeFileSync`
+  // truncates first, so the same failure used to leave an empty file where a governance
+  // artifact had been.
+  assert.throws(() => write(path.join(dir, 'a.md', 'impossible.md'), 'x'));
+  assert.equal(fs.readFileSync(target, 'utf8'), 'original\n');
+  assert.deepEqual(fs.readdirSync(dir).filter((f) => f.endsWith('.tmp')), []);
+
+  write(target, 'replaced\n');
+  assert.equal(fs.readFileSync(target, 'utf8'), 'replaced\n');
+  assert.deepEqual(fs.readdirSync(dir).filter((f) => f.endsWith('.tmp')), []);
+});
+
+test('a plan records the repository it was computed against', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# Thing\n\nA thing.\n');
+  wf(dir, 'docs/install.md', '# Install\n\nRun it.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  cli(dir, ['review']);
+  const plan = JSON.parse(fs.readFileSync(path.join(dir, '.docgov/fix-plan.json'), 'utf8'));
+  assert.ok(plan.fingerprint.tree);
+  assert.equal(plan.fingerprint.documents, snapshot(dir).docs.length);
+  assert.ok(plan.classifications.every((c) => c.digest), 'every document records what it said');
+
+  // Nothing changed: the plan still describes this repository.
+  assert.equal(onboardmod.planDrift(plan, snapshot(dir).docs), null);
+});
+
+test('fix refuses a plan the repository has moved out from under, and names what moved', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# Thing\n\nA thing.\n');
+  wf(dir, 'docs/install.md', '# Install\n\nRun it.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  cli(dir, ['review']);
+  assert.equal(cli(dir, ['fix', '--dry-run']).code, EXIT.OK);
+
+  // What a second agent working the same repository does while this plan is held.
+  wf(dir, 'docs/new.md', '# New guide\n\nSomething else entirely.\n');
+  wf(dir, 'docs/install.md', '# Install\n\nRun it. Then configure it.\n');
+
+  const refused = cli(dir, ['fix', '--dry-run']);
+  assert.equal(refused.code, EXIT.CONFIG);
+  assert.match(refused.out, /no longer\ndescribes this repository/);
+  assert.match(refused.out, /docs\/new\.md/);
+  assert.match(refused.out, /docs\/install\.md/);
+
+  // Overridable, because the user may know something the fingerprint does not.
+  assert.equal(cli(dir, ['fix', '--dry-run', '--force']).code, EXIT.OK);
+
+  // And a fresh plan runs again without one.
+  cli(dir, ['review']);
+  assert.equal(cli(dir, ['fix', '--dry-run']).code, EXIT.OK);
+});
+
+test('a plan written before fingerprints existed still runs', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# Thing\n\nA thing.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  cli(dir, ['review']);
+  const file = path.join(dir, '.docgov/fix-plan.json');
+  const plan = JSON.parse(fs.readFileSync(file, 'utf8'));
+  delete plan.fingerprint;
+  for (const c of plan.classifications) delete c.digest;
+  fs.writeFileSync(file, JSON.stringify(plan, null, 2));
+
+  // Every repository that adopted DocGov before this existed holds one of these, and none of
+  // them may break.
+  assert.equal(onboardmod.planDrift(plan, snapshot(dir).docs), null);
+  assert.equal(cli(dir, ['fix', '--dry-run']).code, EXIT.OK);
+});
+
+test('findings say which revision produced them', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# Thing\n\nA thing.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  const j = JSON.parse(cli(dir, ['check', '--json']).out);
+  assert.ok(j.revision.tree, 'a report that outlives the tree it describes is worse than none');
+  assert.equal(j.revision.documents, snapshot(dir).docs.length);
+  assert.equal(typeof j.revision.clean, 'boolean');
 });

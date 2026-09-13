@@ -6,9 +6,9 @@ import { similarPairs } from './similarity.js';
 import { coverageGaps } from './inventory.js';
 import { assess, readmeOverreach, splitCandidates } from './size.js';
 import { brokenLinks } from './links.js';
-import { primaryAuthor, isRepo, isClean, lastCommitDate } from './git.js';
+import { primaryAuthor, isRepo, isClean, lastCommitDate, headSha } from './git.js';
 import { locationFor } from './config.js';
-import { matchAny, table, plural, exists, read, DocGovError } from './util.js';
+import { matchAny, table, plural, exists, read, DocGovError, sha } from './util.js';
 
 /**
  * Existing-project review (PRD §15, §44).
@@ -58,6 +58,9 @@ export function plan({ root, cfg, docs, inv, graph, registry }) {
       path: d.path, current: d.type, proposed: c.type, confidence: c.confidence,
       needsReview: c.needsReview, signals: c.signals.slice(0, 3), candidates: c.candidates,
       owner, lastChanged, lines: d.lines, registered: d.registered,
+      // What this document said when the plan was computed. `fix` compares these to say
+      // which documents moved underneath it, rather than only that something did.
+      digest: sha(d.raw ?? d.body ?? ''),
     });
 
     const archived = matchAny(d.path, ['docs/99-archive/**', 'docs/archive/**']);
@@ -237,6 +240,11 @@ export function plan({ root, cfg, docs, inv, graph, registry }) {
     version: schema.SCHEMA.plan, generated: new Date().toISOString(),
     layout: cfg.project.layout, mode: cfg.project.mode,
     git: { repo: gitAvailable, clean: gitAvailable ? isClean(root) : false },
+    // The repository this plan describes. A plan is a list of file operations computed
+    // against a particular set of documents, and executing it against a different set is how
+    // a migration destroys something — two agents in one repository make that ordinary
+    // rather than exotic. `fix` refuses a plan whose fingerprint no longer matches.
+    fingerprint: fingerprintOf(root, docs, gitAvailable),
     summary, classifications, actions, duplicates, contradictionCandidates, gaps, brokenLinks: broken,
     collisions,
     stack: inv.stack.map((s) => ({ id: s.id, evidence: s.evidence[0], count: s.count })),
@@ -277,6 +285,42 @@ export const TIERS = [
     + '- **Moves and classifications** — `docgov fix` **will** carry these out. What is uncertain is not the operation but what the document *is*: no signal won clearly. Check them, or delete the ones you disagree with from this plan before running `fix`.\n'
     + '- **Splits, merges and extractions** — prose has to be rewritten, so `fix` never does them on its own. They need `--include split,merge,extract`, and even then one at a time.'],
 ];
+
+/**
+ * What the repository looked like when a plan was computed.
+ *
+ * The commit is recorded because it is what a human recognises, but the documents are what
+ * actually matter: a plan is a list of operations on *these* files with *this* content, and
+ * neither an uncommitted edit nor a commit that touched no documentation changes what the
+ * plan should do. Hashing the governed set directly means the fingerprint moves exactly when
+ * the plan's assumptions do, and not otherwise.
+ */
+export function fingerprintOf(root, docs, gitAvailable = true) {
+  const lines = docs.map((d) => `${d.path}\u0000${sha(d.raw ?? d.body ?? '')}`).sort();
+  return {
+    head: gitAvailable ? headSha(root) : null,
+    documents: docs.length,
+    tree: sha(lines.join('\n')),
+  };
+}
+
+/**
+ * Has the repository moved under a plan? Returns what changed, so the refusal can say which
+ * documents rather than only that something did.
+ */
+export function planDrift(planData, docs) {
+  const fp = planData?.fingerprint;
+  const now = fingerprintOf(null, docs, false);
+  if (!fp?.tree) return null;                 // a plan from before fingerprints; see loadPlan
+  if (fp.tree === now.tree) return null;
+
+  const then = new Map((planData.classifications || []).map((c) => [c.path, c.digest]));
+  const current = new Map(docs.map((d) => [d.path, sha(d.raw ?? d.body ?? '')]));
+  const added = [...current.keys()].filter((p) => !then.has(p));
+  const removed = [...then.keys()].filter((p) => !current.has(p));
+  const modified = [...current].filter(([p, h]) => then.has(p) && then.get(p) && then.get(p) !== h).map(([p]) => p);
+  return { added, removed, modified };
+}
 
 function stripFile(p) { return p.replace(/\.mdx?$/, ''); }
 

@@ -138,6 +138,13 @@ commit real files, and run the real binary as a subprocess.
   different things, two unclassified documents, and a pair whose relationship is already
   declared. A detector is only as useful as its false-positive rate, and the first version of
   this one returned a single cluster of 900 files while passing every test of what it found.
+- **The failure path of a write.** Atomic writes are tested by making one fail: the original
+  must survive intact and no temporary file may be left beside it. The success path proves
+  nothing here — `writeFileSync` passes it too, and then truncates a governance artifact to
+  nothing the one time it matters.
+- **That a guard does not break the repositories that predate it.** A fix plan with no
+  fingerprint, as every earlier adopter holds, must still run. A compatibility guarantee with
+  no test is a compatibility hope.
 - **Both sides of a refusal.** `create` refusing a competing document is only worth having if
   it refuses the right ones, so the tests assert the false-positive side as hard as the true
   one: a narrower name is reported and still written, an unrelated name is written silently,

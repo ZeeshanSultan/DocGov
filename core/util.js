@@ -11,9 +11,31 @@ export class DocGovError extends Error {
 export function read(p) { return fs.readFileSync(p, 'utf8'); }
 export function exists(p) { try { fs.accessSync(p); return true; } catch { return false; } }
 
+/**
+ * Write atomically: a full file into place, or nothing.
+ *
+ * A repository increasingly has several agents in it at once, and `writeFileSync` is not one
+ * operation — a reader can open the file between the truncate and the write and get half of
+ * it, or nothing. For a document that is an annoyance; for `.docgov/registry.yaml` or
+ * `fix-plan.json` it is a governance artifact that parses as something other than what was
+ * written. Rename on the same filesystem is atomic, so a reader sees the old file or the new
+ * one and never a partial one.
+ *
+ * The temporary file sits beside the target rather than in the system temp directory, because
+ * rename across filesystems is a copy and is not atomic. The pid and a counter keep two
+ * processes writing the same path from colliding on the temporary name itself.
+ */
+let writeSeq = 0;
 export function write(p, content) {
   fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, content, 'utf8');
+  const tmp = `${p}.${process.pid}.${writeSeq++}.tmp`;
+  try {
+    fs.writeFileSync(tmp, content, 'utf8');
+    fs.renameSync(tmp, p);
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch { /* the failure above is the one worth reporting */ }
+    throw e;
+  }
   return p;
 }
 

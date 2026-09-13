@@ -66,6 +66,18 @@ with a migration note.
   action carries its `tier` in the JSON. The old Risk table is gone — it was the same fact,
   said twice.
 
+- **A fix plan records the repository it was computed against, and `fix` refuses if it has
+  moved.** A plan is a list of file operations against a particular set of documents, and
+  running it against a different set is how a migration destroys something — with a main agent
+  and subagents in one repository, that is ordinary rather than exotic. The refusal names what
+  was added, removed or modified; `--force` runs it anyway. A plan written before this existed
+  has no fingerprint and still runs.
+- **Every write is atomic.** `writeFileSync` truncates before it writes, so a concurrent reader
+  could see half a registry or a fix plan that parses as something other than what was written.
+  Writes now go to a temporary file beside the target and are renamed into place.
+- **`check --json` says which revision produced its findings** — commit, cleanliness, document
+  count and document fingerprint.
+
 - **`check` reports competing sources of truth**, which is a different problem from
   near-duplicate text. Three setup guides written independently do not read alike — that is
   why they compete — and the near-copy check at 55% overlap found mostly deliberate copies. A

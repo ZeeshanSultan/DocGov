@@ -1,6 +1,6 @@
 # Documentation rules
 
-DocGov governs documentation in this repository. Mode: `solo`. Layout: `compact`.
+DocGov governs documentation in this repository. Mode: `open-source`. Layout: `compact`.
 
 These rules apply to every agent and every human. They exist because a repository
 with many authors — most of them now agents — degrades its documentation faster
@@ -8,15 +8,17 @@ than any review process can repair it.
 
 ## Before creating any documentation
 
-1. **Check whether it already exists.** `docgov find "<topic>"` returns results in
-   authority order. If an authoritative document already covers the topic, update
+1. **Check whether it already exists.** `docgov create <type> "<name>" --check` names the
+   document that already owns the topic, and writes nothing. `docgov find "<topic>"` searches
+   wider, in authority order. If an authoritative document already covers the topic, update
    that document. Do not create a second one.
 2. **Find out what you are writing.** `docgov whatis --path <intended-file>` names
    the document class, its canonical location, its required sections and its limits.
 3. **Create it through DocGov.** `docgov create <type> "<name>" [--domain <d>]` puts
    it in the right place, applies the template, and wires it into the graph. A
    document not in the graph is invisible to impact analysis, which means nobody
-   will be told when it goes stale.
+   will be told when it goes stale. It refuses when an existing document of that
+   class already carries the name; when it refuses, edit that document instead.
 
 Never invent a new top-level Markdown file. Never invent a new documentation
 directory. The taxonomy has a class for almost everything; run `docgov types` before
@@ -69,7 +71,7 @@ their contents.
 2. Update the required ones in the same change. "I will document it later" is how
    drift starts.
 3. `docgov check` — deterministic violations. Blocking checks in this mode:
-   `generated-edit, duplicate-id, invalid-yaml`.
+   `generated-edit, duplicate-id, invalid-yaml, broken-link, visibility-path`.
 4. If a check is genuinely wrong for your case, `docgov ignore <ID> --reason "..."`.
    A suppression needs a reason, stays visible in every report, and can expire. What
    it never does is disappear.

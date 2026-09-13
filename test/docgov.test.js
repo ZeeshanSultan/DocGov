@@ -30,6 +30,7 @@ import { whoOwns } from '../core/responsibility.js';
 import * as judgemod from '../core/judgements.js';
 import * as onboardmod from '../core/onboard.js';
 import * as migratemod from '../core/migrate.js';
+import * as doctormod from '../core/doctor.js';
 import { EXIT } from '../core/util.js';
 
 const BIN = fileURLToPath(new URL('../bin/docgov', import.meta.url));
@@ -1685,4 +1686,108 @@ test('plan: the review tier does not claim fix will skip a move it actually runs
   const dry = migratemod.migrate({ root: dir, cfg: cfgmod.load(dir).cfg, docs: snapshot(dir).docs, planData: plan, dryRun: true });
   const ops = JSON.stringify(dry);
   for (const a of reviewMoves) assert.ok(ops.includes(a.to), `${a.path} is executed by fix and the plan must say so`);
+});
+
+// --- doctor: does this install actually work -----------------------------------------
+
+/** A minimal plugin tree, so a check can be pointed at a broken one without breaking ours. */
+function fakePlugin(version = '1.0.0', { event = 'pre-tool', skillName = 'brief', option = 'enforcement' } = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docgov-plugin-'));
+  wf(dir, 'package.json', JSON.stringify({ version }));
+  wf(dir, '.claude-plugin/plugin.json', JSON.stringify({ version, userConfig: { [option]: { type: 'string' } } }));
+  wf(dir, 'hooks/hooks.json', JSON.stringify({ hooks: { PreToolUse: [{ hooks: [
+    { type: 'command', args: ['node', '${CLAUDE_PLUGIN_ROOT}/bin/docgov', 'hook', event] }] }] } }));
+  wf(dir, 'bin/docgov', `// reads CLAUDE_PLUGIN_OPTION_${option}\n`);
+  wf(dir, `skills/brief/SKILL.md`, `---\nname: ${skillName}\n---\n`);
+  return dir;
+}
+
+test('doctor: a hook naming an event the CLI does not implement is a failure, not silence', () => {
+  const repo = tmpRepo();
+  const good = doctormod.run({ root: repo, pluginRoot: fakePlugin(), env: {} });
+  assert.equal(good.checks.find((c) => c.id === 'hook-events').status, 'ok');
+
+  // This is the failure the rename sweep could have caused: hooks.json still says `drift`,
+  // the CLI now says `stale`, the hook fires into nothing and nobody is told.
+  const bad = doctormod.run({ root: repo, pluginRoot: fakePlugin('1.0.0', { event: 'drift' }), env: {} });
+  const c = bad.checks.find((x) => x.id === 'hook-events');
+  assert.equal(c.status, 'fail');
+  assert.match(c.message, /drift/);
+});
+
+test('doctor: a skill whose name does not match its directory is caught', () => {
+  const repo = tmpRepo();
+  const r = doctormod.run({ root: repo, pluginRoot: fakePlugin('1.0.0', { skillName: 'context' }), env: {} });
+  const c = r.checks.find((x) => x.id === 'skills');
+  assert.equal(c.status, 'fail');
+  assert.match(c.message, /brief declares name: context/);
+});
+
+test('doctor: an advertised option nothing reads is a failure', () => {
+  const repo = tmpRepo();
+  // The real case: three settings advertised in plugin.json and honoured nowhere for two
+  // releases, one of them claiming to switch off the only thing leaving the machine.
+  const r = doctormod.run({ root: repo, pluginRoot: fakePlugin('1.0.0', { option: 'semantic_gate' }), env: {} });
+  const c = r.checks.find((x) => x.id === 'plugin-options');
+  assert.equal(c.status, 'ok', 'the fixture writes a reader for whatever option it declares');
+
+  const broken = fakePlugin();
+  wf(broken, '.claude-plugin/plugin.json', JSON.stringify({ version: '1.0.0', userConfig: { nobody_reads_this: { type: 'string' } } }));
+  const c2 = doctormod.run({ root: repo, pluginRoot: broken, env: {} }).checks.find((x) => x.id === 'plugin-options');
+  assert.equal(c2.status, 'fail');
+  assert.match(c2.message, /nobody_reads_this/);
+});
+
+test('doctor: the two manifests must agree on the version', () => {
+  const repo = tmpRepo();
+  const dir = fakePlugin('1.0.0');
+  wf(dir, '.claude-plugin/plugin.json', JSON.stringify({ version: '0.9.0', userConfig: {} }));
+  const c = doctormod.run({ root: repo, pluginRoot: dir, env: {} }).checks.find((x) => x.id === 'version-skew');
+  assert.equal(c.status, 'fail');
+});
+
+test('doctor: the committed agent rules are checked against the config that generated them', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# Thing\n\nA thing.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  const pluginRoot = fileURLToPath(new URL('..', import.meta.url));
+  assert.equal(doctormod.run({ root: dir, pluginRoot, env: {} }).checks.find((c) => c.id === 'agent-rules').status, 'ok');
+
+  // Exactly how it went stale in this repository: the mode changed and nothing regenerated
+  // the file, because it is generated but committed.
+  const cfgFile = path.join(dir, '.docgov/config.yaml');
+  fs.writeFileSync(cfgFile, fs.readFileSync(cfgFile, 'utf8').replace('mode: solo', 'mode: open-source'));
+  const stale = doctormod.run({ root: dir, pluginRoot, env: {} }).checks.find((c) => c.id === 'agent-rules');
+  assert.equal(stale.status, 'warn');
+  assert.match(stale.fix, /setup --rules/);
+
+  // And the repair must be the narrow one: `--force` rewrites config.yaml and takes every
+  // registration and domain with it, which is more destructive than the fault.
+  const before = fs.readFileSync(cfgFile, 'utf8');
+  assert.equal(cli(dir, ['setup', '--rules']).code, EXIT.OK);
+  assert.equal(fs.readFileSync(cfgFile, 'utf8'), before, 'setup --rules must not touch the config');
+  assert.equal(doctormod.run({ root: dir, pluginRoot, env: {} }).checks.find((c) => c.id === 'agent-rules').status, 'ok');
+});
+
+test('doctor exits 0 clean, 2 on something to look at, and reports on an ungoverned repo', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# Thing\n\nA thing.\n');
+  commit(dir);
+
+  // Before setup it must still run and say what is missing, rather than refusing: a
+  // diagnostic that needs the thing it diagnoses is not a diagnostic.
+  const before = cli(dir, ['doctor']);
+  assert.equal(before.code, EXIT.REVIEW);
+  assert.match(before.out, /not governed yet/);
+
+  cli(dir, ['setup', '--mode', 'solo']);
+  const after = cli(dir, ['doctor']);
+  assert.equal(after.code, EXIT.OK, after.out);
+  assert.match(after.out, /DocGov is working here/);
+
+  const j = JSON.parse(cli(dir, ['doctor', '--json']).out);
+  assert.equal(j.version, 1);
+  assert.equal(j.counts.fail, 0);
+  assert.ok(j.checks.every((c) => ['ok', 'warn', 'fail'].includes(c.status)));
 });

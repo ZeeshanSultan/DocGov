@@ -114,6 +114,10 @@ commit real files, and run the real binary as a subprocess.
   asserted against what `migrate` actually executes, not against the wording alone. A tier
   that said `fix` would skip a move it in fact performs would be a lie no test of the renderer
   on its own could catch.
+- **The agreements between files, by breaking them.** `doctor`'s checks are tested against a
+  deliberately broken plugin tree — a hook naming an event the CLI dropped, a skill whose
+  `name:` no longer matches its directory, an option nothing reads, two manifests at different
+  versions. Each is a failure that ships silently and that no test of a single file can see.
 - **Both sides of a refusal.** `create` refusing a competing document is only worth having if
   it refuses the right ones, so the tests assert the false-positive side as hard as the true
   one: a narrower name is reported and still written, an unrelated name is written silently,

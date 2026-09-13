@@ -1,15 +1,3 @@
----
-docgov:
-  id: readme
-  type: user.readme
-  authority: audience
-  audience:
-    - everyone
-  visibility: public
-  status: active
-  generation:
-    mode: human-maintained
----
 # DocGov
 
 Documentation governance for agentic development. A Claude Code plugin plus a standalone CLI.
@@ -27,7 +15,7 @@ what went stale when something changed.
 ## Install
 
 ```bash
-claude plugin marketplace add <this-repo>
+claude plugin marketplace add ZeeshanSultan/DocGov
 claude plugin install docgov
 ```
 
@@ -39,7 +27,10 @@ Then in your repository:
 ```
 
 The CLI works standalone too (`bin/docgov`, Node 20+, zero dependencies) — the same binary
-runs in CI.
+runs in CI, and on Windows via `bin/docgov.cmd`.
+
+What it runs on every edit, and what the one model-backed hook sends, is documented in
+[SECURITY.md](SECURITY.md). Nothing else leaves your machine.
 
 ## The idea
 
@@ -92,6 +83,11 @@ blocks depends on the project mode — `solo` blocks three rules, `enterprise` b
 Adopting DocGov on a repository that already has documentation starts in `warn_only`, so the
 first build after switching it on does not fail over documentation that predates it. `init`
 says so, and says when to turn it off.
+
+Files GitHub renders on your project's front page — README, CONTRIBUTING, SECURITY, CHANGELOG —
+are governed without frontmatter, via `documentation.registrations` in `.docgov/config.yaml`.
+GitHub renders YAML frontmatter as a table, and your README should open with your project, not
+with its metadata.
 
 ## Usage
 
@@ -174,10 +170,15 @@ examples/         policy packs (organizational governance)
 
 Organizational governance lives in [examples/policy-packs](examples/policy-packs/README.md).
 
-`npm test` runs 59 tests over the engine, including drift, migration, policy packs and the hook protocol
+`npm test` runs 60 tests over the engine, including drift, migration, policy packs and the hook protocol
 against real temporary git repositories.
 
 ## Licence
 
-MIT. See [PRD.md](docs/product/PRD.md) for the full product specification and
-[FEASIBILITY.md](docs/FEASIBILITY.md) for how it maps onto Claude Code primitives.
+[MIT](LICENSE).
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — the one architectural rule, and how to add a rule or a document class
+- [SECURITY.md](SECURITY.md) — what the hooks execute, and what does not leave your machine
+- [CHANGELOG.md](CHANGELOG.md) — what changed
+- [docs/product/PRD.md](docs/product/PRD.md) — the full product specification
+- [docs/FEASIBILITY.md](docs/FEASIBILITY.md) — how it maps onto Claude Code primitives, and what does not work as specified

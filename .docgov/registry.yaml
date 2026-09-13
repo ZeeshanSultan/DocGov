@@ -1,5 +1,59 @@
 version: 1
 documents:
+  architecture-overview:
+    path: docs/architecture.md
+    type: architecture.overview
+    authority: canonical
+    visibility: public
+    title: Architecture
+    owner: docgov
+    hash: 96af546dcb36f2a6
+    lines: 117
+    relationships:
+      implements:
+        - docgov-prd
+      depends_on:
+        - docgov-feasibility
+  changelog:
+    path: CHANGELOG.md
+    type: release.notes
+    authority: historical
+    visibility: public
+    registered_in: config
+    title: Changelog
+    owner: docgov
+    hash: 75c7250f66797149
+    lines: 57
+  code-of-conduct:
+    path: CODE_OF_CONDUCT.md
+    type: unknown
+    authority: historical
+    visibility: internal
+    title: Code of conduct
+    hash: 13b6829d244e261f
+    lines: 44
+  contributing:
+    path: CONTRIBUTING.md
+    type: governance.contributing
+    authority: audience
+    visibility: public
+    registered_in: config
+    title: Contributing
+    owner: docgov
+    hash: c928ef48dabc7f8e
+    lines: 89
+  development:
+    path: docs/development.md
+    type: engineering.development
+    authority: audience
+    visibility: public
+    title: Development
+    owner: docgov
+    hash: 866d980d29ee37af
+    lines: 121
+    relationships:
+      depends_on:
+        - docgov-prd
   docgov-feasibility:
     path: docs/FEASIBILITY.md
     type: architecture.assessment
@@ -7,7 +61,7 @@ documents:
     visibility: internal
     title: "DocGov — Technical Feasibility Assessment"
     owner: docgov
-    hash: f2b03deefdfb4a22
+    hash: d447a340bc80e2fc
     lines: 232
     relationships:
       implements:
@@ -21,6 +75,16 @@ documents:
     owner: docgov
     hash: 9d7de81ce1b419cd
     lines: 1809
+  docs-index:
+    path: docs/README.md
+    type: docs.index
+    authority: audience
+    visibility: public
+    registered_in: config
+    title: DocGov documentation
+    owner: docgov
+    hash: 12446ae73f020b75
+    lines: 16
   examples-policy-packs-readme:
     path: examples/policy-packs/README.md
     type: docs.index
@@ -34,9 +98,11 @@ documents:
     type: user.readme
     authority: audience
     visibility: public
+    registered_in: config
     title: DocGov
-    hash: 6349d422e49ec509
-    lines: 184
+    owner: docgov
+    hash: e12a59cd06f32bd9
+    lines: 185
   schemas-config:
     path: schemas/config.json
     type: contract.schema
@@ -49,3 +115,25 @@ documents:
     authority: machine-contract
     visibility: internal
     machine: true
+  security-public:
+    path: SECURITY.md
+    type: security.public-model
+    authority: audience
+    visibility: public
+    registered_in: config
+    title: Security
+    owner: docgov
+    hash: cf4010527e7237e2
+    lines: 69
+  testing-strategy:
+    path: docs/engineering/testing.md
+    type: engineering.testing
+    authority: canonical
+    visibility: public
+    title: Testing strategy
+    owner: docgov
+    hash: ee1d547774c4ce6f
+    lines: 85
+    relationships:
+      depends_on:
+        - development

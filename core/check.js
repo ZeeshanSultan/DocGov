@@ -77,9 +77,10 @@ export function run({ root, cfg, docs, registry, graph, inv, only = null }) {
     const inArchive = matchAny(d.path, ['docs/99-archive/**', 'docs/archive/**']);
     const generated = d.isGenerated || matchAny(d.path, cfg.generated_paths || []);
 
-    if (!d.hasFrontmatter || !d.frontmatter.docgov) {
+    if ((!d.hasFrontmatter || !d.frontmatter.docgov) && !d.externallyRegistered) {
       add('missing-frontmatter', d, 'no `docgov:` frontmatter block',
-        { fix: `docgov organize --apply --path ${d.path}` });
+        { fix: `docgov organize --apply --path ${d.path}`
+          + ` — or, for a file GitHub renders, register it under documentation.registrations` });
     } else {
       if (!d.meta.id) add('missing-id', d, 'docgov.id is required');
       if (d.meta.type && !TYPES[d.meta.type]) add('unknown-type', d, `unknown type "${d.meta.type}"`);

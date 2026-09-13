@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/bin/docgov", "hook", "session-start"],
+            "args": ["node", "${CLAUDE_PLUGIN_ROOT}/bin/docgov", "hook", "session-start"],
             "timeout": 10
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/bin/docgov", "hook", "pre-tool"],
+            "args": ["node", "${CLAUDE_PLUGIN_ROOT}/bin/docgov", "hook", "pre-tool"],
             "timeout": 15
           }
         ]
@@ -43,7 +43,7 @@
         "hooks": [
           {
             "type": "command",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/bin/docgov", "hook", "post-write"],
+            "args": ["node", "${CLAUDE_PLUGIN_ROOT}/bin/docgov", "hook", "post-write"],
             "timeout": 20
           }
         ]
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/bin/docgov", "hook", "stop"],
+            "args": ["node", "${CLAUDE_PLUGIN_ROOT}/bin/docgov", "hook", "stop"],
             "timeout": 20
           }
         ]

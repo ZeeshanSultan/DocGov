@@ -4,12 +4,36 @@
   "description": "Documentation governance layer for agentic software development",
   "type": "module",
   "license": "MIT",
-  "bin": { "docgov": "./bin/docgov" },
-  "engines": { "node": ">=20" },
+  "bin": {
+    "docgov": "./bin/docgov"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "test": "node --test test/*.test.js",
     "docgov": "node ./bin/docgov"
   },
-  "files": ["bin", "core", "templates", "lenses", "schemas", "rules"],
-  "dependencies": {}
+  "files": [
+    "bin",
+    "core",
+    "templates",
+    "lenses",
+    "schemas",
+    "rules",
+    "skills",
+    "agents",
+    "hooks",
+    ".claude-plugin"
+  ],
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZeeshanSultan/DocGov.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ZeeshanSultan/DocGov/issues"
+  },
+  "homepage": "https://github.com/ZeeshanSultan/DocGov#readme",
+  "author": "Zeeshan Sultan"
 }

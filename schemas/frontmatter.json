@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://docgov.dev/schemas/frontmatter.json",
+  "$id": "https://raw.githubusercontent.com/ZeeshanSultan/DocGov/main/schemas/frontmatter.json",
   "title": "DocGov document frontmatter",
   "description": "The docgov block in a governed document's YAML frontmatter. Point your editor at this for completion and validation.",
   "type": "object",
@@ -153,7 +153,7 @@
               }
             }
           ],
-          "description": "Code path globs this document describes. Without this the document is invisible to drift detection and to invariant injection — the single most valuable field in the block."
+          "description": "Code path globs this document describes. Without this the document is invisible to drift detection and to invariant injection \u2014 the single most valuable field in the block."
         },
         "invariants": {
           "type": "array",

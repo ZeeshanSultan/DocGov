@@ -9,8 +9,15 @@ import { read, sha, slug, titleCase, toPosix } from './util.js';
  * snapshot per run.
  */
 export class Document {
-  /** @param {string} root @param {string} rel */
-  constructor(root, rel, source) {
+  /**
+   * @param {string} root
+   * @param {string} rel
+   * @param {string} [source]
+   * @param {object} [externalMeta] registration from config, for files that must not carry
+   *   frontmatter. GitHub renders YAML frontmatter in Markdown as a table, so README,
+   *   CONTRIBUTING, SECURITY and CHANGELOG are governed from the registry instead.
+   */
+  constructor(root, rel, source, externalMeta) {
     this.root = root;
     this.path = toPosix(rel);
     this.source = source ?? read(path.join(root, rel));
@@ -21,7 +28,8 @@ export class Document {
     this.frontmatter = parsed.data;
     this.body = parsed.body;
     this.hasFrontmatter = parsed.hasFrontmatter;
-    this.meta = this.frontmatter.docgov || {};
+    this.meta = this.frontmatter.docgov || externalMeta || {};
+    this.externallyRegistered = !this.frontmatter.docgov && Boolean(externalMeta);
     this.registered = Boolean(this.meta.id);
     this.lines = this.source.split('\n').length;
     this.bodyLines = this.body.split('\n').length;
@@ -87,6 +95,7 @@ export class Document {
 
   toRegistryEntry() {
     const e = { path: this.path, type: this.type, authority: this.authority, visibility: this.visibility };
+    if (this.externallyRegistered) e.registered_in = 'config';
     if (this.title) e.title = this.title;
     if (this.domain) e.domain = this.domain;
     if (this.owner) e.owner = this.owner;

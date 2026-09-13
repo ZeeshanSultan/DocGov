@@ -10,3 +10,6 @@ node_modules/
 .docgov/onboarding-plan.md
 .docgov/onboarding-plan.json
 .docgov/manifest.yaml
+.kangentic/
+.claude/settings.local.json
+kangentic.local.json

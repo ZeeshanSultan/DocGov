@@ -42,7 +42,8 @@ export function inventory(root, cfg) {
   const exclude = cfg.documentation.exclude || [];
 
   const mdPaths = all.filter((p) => MD.test(p) && matchAny(p, include) && !matchAny(p, exclude));
-  const documents = mdPaths.map((p) => new Document(root, p));
+  const registrations = cfg.documentation?.registrations || {};
+  const documents = mdPaths.map((p) => new Document(root, p, undefined, registrations[p]));
 
   const contracts = [];
   for (const glob of (cfg.contracts?.openapi || [])) {

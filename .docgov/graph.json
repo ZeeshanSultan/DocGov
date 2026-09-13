@@ -3,6 +3,45 @@
   "generated": "2026-09-13",
   "nodes": [
     {
+      "id": "changelog",
+      "path": "CHANGELOG.md",
+      "type": "release.notes",
+      "authority": "historical",
+      "visibility": "public",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 57,
+      "hash": "75c7250f66797149",
+      "generated": false
+    },
+    {
+      "id": "code-of-conduct",
+      "path": "CODE_OF_CONDUCT.md",
+      "type": "unknown",
+      "authority": "historical",
+      "visibility": "internal",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 44,
+      "hash": "13b6829d244e261f",
+      "generated": false
+    },
+    {
+      "id": "contributing",
+      "path": "CONTRIBUTING.md",
+      "type": "governance.contributing",
+      "authority": "audience",
+      "visibility": "public",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 89,
+      "hash": "c928ef48dabc7f8e",
+      "generated": false
+    },
+    {
       "id": "readme",
       "path": "README.md",
       "type": "user.readme",
@@ -11,8 +50,21 @@
       "domain": null,
       "status": "active",
       "kind": "document",
-      "lines": 184,
-      "hash": "6349d422e49ec509",
+      "lines": 185,
+      "hash": "e12a59cd06f32bd9",
+      "generated": false
+    },
+    {
+      "id": "security-public",
+      "path": "SECURITY.md",
+      "type": "security.public-model",
+      "authority": "audience",
+      "visibility": "public",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 69,
+      "hash": "cf4010527e7237e2",
       "generated": false
     },
     {
@@ -25,7 +77,59 @@
       "status": "active",
       "kind": "document",
       "lines": 232,
-      "hash": "f2b03deefdfb4a22",
+      "hash": "d447a340bc80e2fc",
+      "generated": false
+    },
+    {
+      "id": "docs-index",
+      "path": "docs/README.md",
+      "type": "docs.index",
+      "authority": "audience",
+      "visibility": "public",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 16,
+      "hash": "12446ae73f020b75",
+      "generated": false
+    },
+    {
+      "id": "architecture-overview",
+      "path": "docs/architecture.md",
+      "type": "architecture.overview",
+      "authority": "canonical",
+      "visibility": "public",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 117,
+      "hash": "96af546dcb36f2a6",
+      "generated": false
+    },
+    {
+      "id": "development",
+      "path": "docs/development.md",
+      "type": "engineering.development",
+      "authority": "audience",
+      "visibility": "public",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 121,
+      "hash": "866d980d29ee37af",
+      "generated": false
+    },
+    {
+      "id": "testing-strategy",
+      "path": "docs/engineering/testing.md",
+      "type": "engineering.testing",
+      "authority": "canonical",
+      "visibility": "public",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 85,
+      "hash": "ee1d547774c4ce6f",
       "generated": false
     },
     {
@@ -98,6 +202,31 @@
         "core/drift.js",
         "core/impact.js"
       ]
+    },
+    {
+      "id": "code:architecture-overview",
+      "path": "core/**, bin/docgov",
+      "type": "code.paths",
+      "authority": "implementation",
+      "visibility": "internal",
+      "domain": null,
+      "kind": "code",
+      "paths": [
+        "core/**",
+        "bin/docgov"
+      ]
+    },
+    {
+      "id": "code:testing-strategy",
+      "path": "test/**",
+      "type": "code.paths",
+      "authority": "implementation",
+      "visibility": "internal",
+      "domain": null,
+      "kind": "code",
+      "paths": [
+        "test/**"
+      ]
     }
   ],
   "edges": [
@@ -114,8 +243,98 @@
       "inferred": true
     },
     {
+      "from": "architecture-overview",
+      "to": "docgov-prd",
+      "rel": "implements",
+      "inferred": false
+    },
+    {
+      "from": "docgov-prd",
+      "to": "architecture-overview",
+      "rel": "implemented_by",
+      "inferred": true
+    },
+    {
+      "from": "architecture-overview",
+      "to": "docgov-feasibility",
+      "rel": "depends_on",
+      "inferred": false
+    },
+    {
+      "from": "docgov-feasibility",
+      "to": "architecture-overview",
+      "rel": "depended_on_by",
+      "inferred": true
+    },
+    {
+      "from": "development",
+      "to": "docgov-prd",
+      "rel": "depends_on",
+      "inferred": false
+    },
+    {
+      "from": "docgov-prd",
+      "to": "development",
+      "rel": "depended_on_by",
+      "inferred": true
+    },
+    {
+      "from": "testing-strategy",
+      "to": "development",
+      "rel": "depends_on",
+      "inferred": false
+    },
+    {
+      "from": "development",
+      "to": "testing-strategy",
+      "rel": "depended_on_by",
+      "inferred": true
+    },
+    {
+      "from": "contributing",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "contributing",
+      "to": "development",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "contributing",
+      "to": "code-of-conduct",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "readme",
+      "to": "security-public",
+      "rel": "references",
+      "inferred": true
+    },
+    {
       "from": "readme",
       "to": "examples-policy-packs-readme",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "readme",
+      "to": "contributing",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "readme",
+      "to": "security-public",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "readme",
+      "to": "changelog",
       "rel": "references",
       "inferred": true
     },
@@ -130,6 +349,120 @@
       "to": "docgov-feasibility",
       "rel": "references",
       "inferred": true
+    },
+    {
+      "from": "docs-index",
+      "to": "architecture-overview",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docs-index",
+      "to": "development",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docs-index",
+      "to": "testing-strategy",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docs-index",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docs-index",
+      "to": "docgov-prd",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docs-index",
+      "to": "architecture-overview",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docs-index",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docs-index",
+      "to": "readme",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "architecture-overview",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "architecture-overview",
+      "to": "development",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "architecture-overview",
+      "to": "testing-strategy",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "architecture-overview",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "architecture-overview",
+      "to": "docgov-prd",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "development",
+      "to": "contributing",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "development",
+      "to": "security-public",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "development",
+      "to": "testing-strategy",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "development",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "architecture-overview",
+      "to": "code:architecture-overview",
+      "rel": "documents",
+      "inferred": false
+    },
+    {
+      "from": "testing-strategy",
+      "to": "code:testing-strategy",
+      "rel": "documents",
+      "inferred": false
     }
   ]
 }

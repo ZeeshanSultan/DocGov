@@ -1,11 +1,49 @@
 version: 1
 project:
   name: docgov
-  mode: solo
-  visibility: internal
+  mode: open-source
+  visibility: mixed
   layout: compact
 documentation:
   root: docs
+  # GitHub renders YAML frontmatter in Markdown as a table, so the files it puts on the
+  # project's front page are governed from here instead of from a block in the file.
+  registrations:
+    README.md:
+      id: readme
+      type: user.readme
+      authority: audience
+      visibility: public
+      status: active
+      owner: docgov
+    CONTRIBUTING.md:
+      id: contributing
+      type: governance.contributing
+      authority: audience
+      visibility: public
+      status: active
+      owner: docgov
+    SECURITY.md:
+      id: security-public
+      type: security.public-model
+      authority: audience
+      visibility: public
+      status: active
+      owner: docgov
+    docs/README.md:
+      id: docs-index
+      type: docs.index
+      authority: audience
+      visibility: public
+      status: active
+      owner: docgov
+    CHANGELOG.md:
+      id: changelog
+      type: release.notes
+      authority: historical
+      visibility: public
+      status: active
+      owner: docgov
   exclude:
     - ".claude/**"
     - ".docgov/**"

@@ -57,6 +57,11 @@ export function defaults() {
       // make DocGov police the files that configure DocGov.
       exclude: ['.claude/**', '.docgov/**', '**/node_modules/**', '**/SKILL.md',
         '.github/ISSUE_TEMPLATE/**', '**/PULL_REQUEST_TEMPLATE.md', '**/CHANGELOG_UNRELEASED.md'],
+      // Documents governed from here instead of from frontmatter in the file. GitHub renders
+      // YAML frontmatter in Markdown as a table, so the files it surfaces on a project's
+      // front page — README, CONTRIBUTING, SECURITY, CHANGELOG — should not carry any.
+      // path -> the same keys a `docgov:` block would hold.
+      registrations: {},
     },
     governance: {
       canonical_changes_require_review: true,
@@ -94,6 +99,11 @@ export function load(cwd = process.cwd()) {
     catch (e) { throw new DocGovError(`${CONFIG_PATH} is not valid: ${e.message}`); }
   }
   let cfg = merge(defaults(), raw);
+  // Excludes are a deny-list, so they accumulate rather than replace. Adding one entry
+  // should not silently re-enable governance over agent infrastructure.
+  if (raw.documentation?.exclude) {
+    cfg.documentation.exclude = [...new Set([...defaults().documentation.exclude, ...raw.documentation.exclude])];
+  }
 
   for (const p of cfg.policy_packs || []) {
     const abs = path.isAbsolute(p) ? p : path.join(root, p);

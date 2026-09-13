@@ -1,0 +1,38 @@
+name: Rule or document class proposal
+description: A new deterministic rule, or a document class the taxonomy is missing
+labels: [proposal]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Two questions decide whether a proposal lands:
+
+        1. **Is it decidable by software?** If answering it needs judgement, it belongs in a
+           lens or an agent, not in a blocking rule. See [FEASIBILITY.md](../../docs/FEASIBILITY.md) §3.
+        2. **Does it earn its noise?** A rule that fires on documentation people consider
+           fine is how the whole plugin gets uninstalled.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options: [Deterministic rule, Document class, Lens criterion, Relationship type]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What it would check, or what the class represents
+    validations:
+      required: true
+  - type: textarea
+    id: decidable
+    attributes:
+      label: Why software can decide it without guessing
+      description: If it cannot, say which lens or agent should own it instead.
+    validations:
+      required: true
+  - type: textarea
+    id: falsepositives
+    attributes:
+      label: Where it would produce a false positive
+      description: Every rule has cases. Naming them is how we decide whether it blocks or warns.

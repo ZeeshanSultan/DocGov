@@ -3,7 +3,7 @@ name: Documentation governance
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, master]
 
 permissions:
   contents: read
@@ -15,24 +15,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0          # drift analysis needs history
+          fetch-depth: 0          # drift and impact analysis need history
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      # Deterministic rules. Exit 1 is a real violation and fails the build.
-      # Exit 2 is drift needing review and is surfaced, not failed, by default.
+      - name: Engine tests
+        run: npm test
+
+      # Exit 1 is a deterministic violation and fails the build.
+      # Exit 2 is drift needing review: surfaced, not failed. Change that here if you
+      # want drift to gate merges.
       - name: Deterministic checks
-        id: check
         run: |
           set +e
-          docgov check --all
+          ./bin/docgov check --all
           code=$?
-          echo "code=$code" >> "$GITHUB_OUTPUT"
-          exit $(( code == 1 ? 1 : 0 ))
-        env:
-          PATH: ${{ github.workspace }}/bin:/usr/local/bin:/usr/bin:/bin
+          echo "docgov check exited $code"
+          test "$code" -ne 1
 
       - name: Drift and impact
         if: github.event_name == 'pull_request'
@@ -47,8 +48,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -s docgov-report.txt ]; then
-            gh pr comment "${{ github.event.number }}" --body-file docgov-report.txt --edit-last --create-if-none
+            gh pr comment "${{ github.event.number }}" \
+              --body-file docgov-report.txt --edit-last --create-if-none
           fi
-
-      - name: Engine tests
-        run: npm test

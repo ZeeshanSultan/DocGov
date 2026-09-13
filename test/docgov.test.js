@@ -200,6 +200,33 @@ test('check: a plugin repository does not govern its own components', async () =
     'only real documentation should be inventoried in a plugin repository');
 });
 
+test('documents can be governed from config instead of frontmatter', () => {
+  // GitHub renders YAML frontmatter in Markdown as a table, so a README that carried a
+  // docgov block would open the project's front page with a metadata dump.
+  const dir = tmpRepo();
+  wf(dir, '.docgov/config.yaml', ['version: 1', 'project:', '  mode: open-source',
+    'documentation:', '  registrations:', '    README.md:', '      id: readme',
+    '      type: user.readme', '      visibility: public', '      owner: me'].join('\n') + '\n');
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  commit(dir);
+
+  const s = snapshot(dir);
+  const d = s.docs.find((x) => x.path === 'README.md');
+  assert.ok(d.externallyRegistered);
+  assert.equal(d.id, 'readme');
+  assert.equal(d.type, 'user.readme');
+  assert.equal(d.visibility, 'public');
+  assert.ok(!d.source.startsWith('---'), 'the file itself must stay free of frontmatter');
+
+  const { findings } = check.run(s);
+  assert.ok(!findings.some((f) => f.path === 'README.md' && f.rule === 'missing-frontmatter'),
+    'an externally registered document is registered, not missing its frontmatter');
+
+  // ...and `organize --apply` must not write a block into it.
+  const r = cli(dir, ['organize', '--apply', '--json']);
+  assert.equal(fs.readFileSync(path.join(dir, 'README.md'), 'utf8').startsWith('---'), false, r.out);
+});
+
 test('coverage gaps use the inferred class, not only the declared one', () => {
   const dir = tmpRepo();
   wf(dir, '.docgov/config.yaml', 'version: 1\nproject:\n  mode: solo\n');

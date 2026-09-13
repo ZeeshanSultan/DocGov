@@ -1,0 +1,38 @@
+name: Bug report
+description: Something DocGov got wrong
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Most valuable reports are **false positives and false negatives** — a rule that
+        fired when it should not have, or drift it missed. Those are the bugs that decide
+        whether people trust the tool.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The command you ran and its output. `--json` output is ideal.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Smallest repository that reproduces it
+      description: |
+        A file tree plus the relevant frontmatter beats a description. If it only happens
+        in a private repository, say which rule and which document class.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `docgov version` and `node -v`
+    validations:
+      required: true

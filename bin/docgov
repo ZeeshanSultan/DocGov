@@ -38,6 +38,7 @@ import { EXIT, DocGovError, table, write, read, exists, toPosix, plural } from '
 import * as schemamod from '../core/schema.js';
 import * as respmod from '../core/responsibility.js';
 import * as judge from '../core/judgements.js';
+import * as doctormod from '../core/doctor.js';
 
 const argv = process.argv.slice(2);
 
@@ -111,6 +112,7 @@ const COMMANDS = {
   tools: cmdTools,
   ignore: cmdIgnore,
   judge: cmdJudge,
+  doctor: cmdDoctor,
   inspect: cmdInspect,
   hook: cmdHook,
   version: () => { say(packageVersion()); return EXIT.OK; },
@@ -146,6 +148,22 @@ try {
 
 function cmdSetup() {
   const { root, initialized } = cfgmod.load(process.cwd());
+
+  // `.claude/rules/documentation.md` is generated from the config but committed, so nothing
+  // regenerates it when the config it describes changes — it went stale the first time this
+  // project's mode did. Rewriting it needed `--force`, which also overwrites config.yaml and
+  // takes every registration and domain with it: the repair was more destructive than the
+  // fault. It has its own door now, and `doctor` sends people through that one.
+  if (flags.rules) {
+    if (!initialized) throw new DocGovError('this repository is not governed yet. Run `docgov setup` first.');
+    const { cfg: current } = cfgmod.load(root);
+    const at = path.join(root, '.claude', 'rules', 'documentation.md');
+    write(at, agentRules(current));
+    if (JSONOUT) return emit({ regenerated: '.claude/rules/documentation.md' }) ?? EXIT.OK;
+    say(`Regenerated .claude/rules/documentation.md for mode ${current.project.mode}, layout ${current.project.layout}.`);
+    return EXIT.OK;
+  }
+
   if (initialized && !flags.force) throw new DocGovError('already initialized. Pass --force to rewrite .docgov/config.yaml.');
 
   const i = inv.inventory(root, cfgmod.defaults());
@@ -711,6 +729,32 @@ function yn(b) { return b ? 'yes' : 'no '; }
  * Record what a model concluded. This is the only way a semantic finding enters DocGov, and
  * it is deliberately a different door from the one deterministic findings come through.
  */
+/**
+ * Is DocGov actually working here? Hooks are invisible when they work and mystifying when
+ * they do not, and the same is true of a skill under the wrong name or an option nothing
+ * reads. Every check answers "does this file still agree with that one".
+ */
+function cmdDoctor() {
+  const root = cfgmod.load(process.cwd()).root;
+  const pluginRoot = doctormod.pluginRootOf(import.meta.url);
+  const r = doctormod.run({ root, pluginRoot });
+  const code = r.counts.fail ? EXIT.VIOLATION : r.counts.warn ? EXIT.REVIEW : EXIT.OK;
+
+  if (JSONOUT) { emit(schemamod.stamp('doctor', { ...r, exitCode: code })); return code; }
+
+  const mark = { ok: '\u2713', warn: '!', fail: '\u2717' };
+  say(`docgov doctor — ${packageVersion()}`);
+  say('\u2500'.repeat(54));
+  for (const c of r.checks) {
+    say(`  ${mark[c.status]} ${c.id.padEnd(16)} ${c.message}`);
+    if (c.fix) say(`    ${' '.repeat(16)} ${c.fix}`);
+  }
+  say('');
+  say(`${r.counts.ok} ok · ${r.counts.warn} to look at · ${r.counts.fail} broken`);
+  if (!r.counts.fail && !r.counts.warn) say('DocGov is working here.');
+  return code;
+}
+
 function cmdJudge() {
   const c = ctx();
   const agent = flags.agent ? String(flags.agent) : null;
@@ -1313,6 +1357,7 @@ function usage() {
 
 Start here
   setup [--mode M] [--layout full|compact]   turn DocGov on in this repo
+        [--rules]                            regenerate .claude/rules/documentation.md only
   review                                     look at the docs you already have, write a fix plan
   fix [--dry-run] [--include split,..] [--skip ID,..]  run that plan on a branch; reverts itself if it breaks
 
@@ -1340,6 +1385,7 @@ When something is off
 Plumbing
   types [filter]        registry [--rebuild]        graph [--dot] [--save]        tools
   hook <pre-tool|pre-write|post-write|session-start|pre-code-edit|stop>
+  doctor                is any of this actually working?
   version               help
 
 Every command takes --json.

@@ -53,6 +53,19 @@ with a migration note.
   action carries its `tier` in the JSON. The old Risk table is gone — it was the same fact,
   said twice.
 
+- **`docgov doctor` — is any of this actually working?** Fourteen checks, each of the form
+  *does this file still agree with that one*: hooks naming events the CLI implements and
+  pointing at files that exist, skills whose `name:` matches their directory, plugin options
+  the engine actually reads, manifests agreeing on a version, stored artifacts still readable,
+  the registry not pointing at deleted files, and `.claude/rules/documentation.md` agreeing
+  with the config that generated it. A hook is invisible when it works and mystifying when it
+  does not; none of these failures is a bug in any one file, so no test of one file sees them.
+  Exit 0 clear, 2 to look at, 1 broken. It found two live problems on its first run.
+- **`docgov setup --rules`** regenerates `.claude/rules/documentation.md` and touches nothing
+  else. It is generated but committed, so it does not self-heal when the mode or layout
+  changes — and the only repair before this was `setup --force`, which rewrites
+  `.docgov/config.yaml` from scratch and takes every registration and domain with it.
+
 - **`docgov judge` records what a model concluded, as a different kind of object.** Software
   decides what blocks and a model decides what is subjective; the risk was never that the two
   were stored together but that they *rendered* the same. Judgements live in

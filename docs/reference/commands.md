@@ -46,7 +46,13 @@ initial registry and graph.
 ```bash
 docgov setup
 docgov setup --mode team --layout full
+docgov setup --rules      # regenerate .claude/rules/documentation.md, touch nothing else
 ```
+
+`--force` rewrites `.docgov/config.yaml` from scratch, which takes your registrations and
+domains with it. Use `--rules` when all you need is the agent rules file back in step with the
+config — it is generated but committed, so it does not self-heal when the mode or layout
+changes. `docgov doctor` tells you when that has happened.
 
 | Flag | |
 |---|---|
@@ -319,6 +325,34 @@ docgov ignore --remove DRIFT-20828
 
 **Writes:** `.docgov/suppressions.yaml`. Suppressed findings stay visible in `ignore list` and
 in every report. Expired ones get their own section in `check`. Nothing disappears quietly.
+
+### `docgov doctor`
+
+Is any of this actually working? A hook is invisible when it works and mystifying when it does
+not — you find out it never fired by noticing its absence, weeks later, in the documentation it
+failed to govern.
+
+```bash
+docgov doctor
+docgov doctor --json
+```
+
+Fourteen checks, each of the form *does this file still agree with that one*: Node version,
+the two manifests agreeing on a version, every registered hook naming an event the CLI
+implements and pointing at a file that exists, every skill's `name:` matching its directory,
+every advertised plugin option actually being read by the engine, git, the config, `.docgov/`
+being writable, stored artifacts still readable by this build, the registry not pointing at
+deleted files, `.claude/rules/documentation.md` agreeing with the config that generated it,
+duplicate ids, and anything the scan could not reach.
+
+Every one exists because the disagreement it looks for either happened here or was one edit
+away. Two of them have already caught real bugs in this repository: three plugin options
+advertised and honoured nowhere for two releases, and a rules file that still said `solo` after
+the project became `open-source`.
+
+**Exit 0** all clear · **2** something to look at · **1** something is broken. It runs on an
+ungoverned repository too, and tells you that is what it found — a diagnostic that needs the
+thing it diagnoses is not a diagnostic.
 
 ### `docgov judge --file <verdicts.json>`
 

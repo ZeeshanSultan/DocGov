@@ -35,6 +35,7 @@ export const SCHEMA = {
   brief: 1,
   health: 1,
   rules: 1,
+  doctor: 1,
 };
 
 /** Human names, so an error says what the file is rather than which key it belongs to. */
@@ -43,7 +44,7 @@ const LABELS = {
   suppressions: 'suppressions file', plan: 'fix plan', checklist: 'change checklist',
   tools: 'capability registry', judgements: 'model judgements',
   findings: 'findings report', brief: 'context pack',
-  health: 'health report', rules: 'rule set',
+  health: 'health report', rules: 'rule set', doctor: 'diagnostic report',
 };
 
 /** Stamp an object with the current version for its artifact. */

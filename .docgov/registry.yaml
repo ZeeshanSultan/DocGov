@@ -7,8 +7,8 @@ documents:
     visibility: public
     title: Architecture
     owner: docgov
-    hash: d78257201c833bd1
-    lines: 128
+    hash: 1a2723af25baa5eb
+    lines: 129
     relationships:
       implements:
         - docgov-prd
@@ -263,8 +263,8 @@ documents:
     visibility: public
     title: Testing strategy
     owner: docgov
-    hash: e9ab7b54062ffb23
-    lines: 108
+    hash: dbbe3b6166c7c68c
+    lines: 113
     relationships:
       depends_on:
         - development

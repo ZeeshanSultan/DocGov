@@ -9,6 +9,10 @@ import { resolveLink } from './graph.js';
  * links are DocGov's job because they *are* the graph.
  */
 
+/** Generator configs that mark a directory as a static-site root. */
+const SITE_CONFIGS = ['config.toml', 'hugo.toml', 'hugo.yaml', 'config.yaml', 'config.dev.toml',
+  'mkdocs.yml', 'docusaurus.config.js', 'docusaurus.config.ts', '_config.yml'];
+
 /**
  * @param {import('./document.js').Document[]} docs
  * @param {string} root
@@ -38,11 +42,35 @@ export function brokenLinks(docs, root, allFiles) {
     const noLine = rel.replace(/:\d+(?:-\d+)?$/, '');
     if (noLine !== rel && present(noLine)) return true;
 
-    // Static-site permalink: `./CHW-1001/` rendered from a sibling `CHW-1001.md`,
-    // or from `CHW-1001/_index.md`. Hugo, Docusaurus and Jekyll all do this.
+    // Static-site permalink: `./CHW-1001/` rendered from a sibling `CHW-1001.md`, or
+    // from `CHW-1001/_index.md`. Hugo, Docusaurus and Jekyll all do this. The trailing
+    // slash is optional in the source — `../../usage/permissions` is the same link as
+    // `../../usage/permissions/` — so this must not be gated on it.
     const slug = rel.replace(/\/$/, '');
-    if (slug !== rel && (present(`${slug}.md`) || present(`${slug}/_index.md`)
-      || present(`${slug}/index.md`) || present(`${slug}/README.md`))) return true;
+    if (present(`${slug}.md`) || present(`${slug}/_index.md`)
+      || present(`${slug}/index.md`) || present(`${slug}/README.md`)) return true;
+
+    // A static-site generator renders a page as its own directory, so a relative link
+    // inside one resolves against `…/page/`, one level deeper than the file sits. From
+    // `integrations/api-v2-docs.md`, `../social-authentication/` is
+    // `integrations/social-authentication`, not `social-authentication` beside it.
+    const asDir = resolveLink(`${docPath.replace(/\.mdx?$/, '')}/index.md`, target).replace(/\/$/, '');
+    if (asDir !== slug && (present(asDir) || present(`${asDir}.md`)
+      || present(`${asDir}/_index.md`) || present(`${asDir}/index.md`))) return true;
+
+    // `static/` is served at the site root, so `images/x.png` inside `content/` means
+    // `<site>/static/images/x.png`. Walk up to the nearest directory that holds both a
+    // generator config and a `static/`, and try the target under it. This was 93 of the
+    // 110 findings on a Hugo documentation site — every image in the whole tree.
+    const bare = toPosix(target).replace(/^(\.\.\/)+/, '').replace(/^\.\//, '').replace(/^\//, '');
+    if (bare) {
+      for (let dir = path.posix.dirname(toPosix(docPath)); ; dir = path.posix.dirname(dir)) {
+        if (SITE_CONFIGS.some((c) => present(dir === '.' ? c : `${dir}/${c}`))
+          && present(dir === '.' ? 'static' : `${dir}/static`)
+          && present(dir === '.' ? `static/${bare}` : `${dir}/static/${bare}`)) return true;
+        if (dir === '.' || dir === '/' || dir === '') break;
+      }
+    }
 
     // Repo-root relative: `core/malware/index.go` written from `docs/…`. Only tried
     // for targets that did not explicitly anchor themselves with `./`, `../` or `/`.

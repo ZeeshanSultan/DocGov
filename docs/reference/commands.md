@@ -326,6 +326,45 @@ docgov ignore --remove DRIFT-20828
 **Writes:** `.docgov/suppressions.yaml`. Suppressed findings stay visible in `ignore list` and
 in every report. Expired ones get their own section in `check`. Nothing disappears quietly.
 
+### Defining your own document classes
+
+The taxonomy ships 60 classes. It does not enumerate every project's needs — measured on three
+unfamiliar repositories, the honest residue after all the classification work is still working
+notes, sales collateral and QA evidence. Until now the only escape hatch was abstention, which
+is correct and terminal.
+
+Add classes in `.docgov/config.yaml`, or in a policy pack so every repository in an
+organization gets them:
+
+```yaml
+taxonomy:
+  types:
+    qa.evidence:
+      label: QA Evidence
+      authority: implementation       # any tier in the authority order
+      paths:                          # required — see below
+        - "qa/evidence/**"
+      sections: [Scope, Method, Result]
+      soft: 300                       # hard defaults to soft × 1.8
+      lens: developer                 # optional
+      visibility: internal            # optional
+```
+
+A class you define is a class like any other: `whatis` classifies into it, `create` gives it a
+template built from its sections, `check` enforces those sections and its limits, and `types`
+lists it marked as yours.
+
+Four rules keep this an extension rather than a hole in the model:
+
+1. **You cannot redefine a class DocGov ships.** Changing what `product.prd` means would make
+   every other repository's answer to that question unverifiable. Refused by id.
+2. **`paths` is required.** A class with no paths has no structural evidence behind it, so
+   nothing could ever be classified into it without guessing from prose.
+3. **Those paths are evidence, not a catch-all.** A document outside them still abstains
+   rather than being forced into the nearest class you happen to have defined.
+4. **Everything is validated at load** — the id shape, the authority tier, the limits, the
+   visibility — while you are still looking at the file that declares it.
+
 ### `docgov doctor`
 
 Is any of this actually working? A hook is invisible when it works and mystifying when it does

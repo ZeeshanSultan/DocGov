@@ -1,7 +1,7 @@
 import path from 'node:path';
 import * as yaml from './yaml.js';
 import * as schema from './schema.js';
-import { TYPES, MODES, VISIBILITY_PATHS, GENERATED_PATHS } from './taxonomy.js';
+import { TYPES, MODES, VISIBILITY_PATHS, GENERATED_PATHS, registerTypes } from './taxonomy.js';
 import { read, exists, write, merge, DocGovError, findRepoRoot } from './util.js';
 
 export const CONFIG_PATH = '.docgov/config.yaml';
@@ -141,6 +141,14 @@ export function load(cwd = process.cwd()) {
     const ex = cfg.documentation.exclude || [];
     cfg.documentation.exclude = [...new Set([...ex, ...payload])];
   }
+
+  // Classes this project defines for itself, from config or a policy pack. Registered here
+  // because this is the one place every entry point passes through — the CLI, the hooks and
+  // the tests all reach the taxonomy after loading config, and none of them should have to
+  // remember to do it. Invalid definitions throw here, while the person who wrote them is
+  // still looking at the file.
+  cfg.taxonomy = cfg.taxonomy || {};
+  cfg.taxonomy.custom = registerTypes(cfg.taxonomy.types);
 
   const profile = MODE_PROFILES[cfg.project.mode];
   cfg.governance.enforce = cfg.governance.enforce || profile.block;

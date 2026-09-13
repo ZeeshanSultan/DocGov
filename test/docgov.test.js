@@ -31,6 +31,7 @@ import * as judgemod from '../core/judgements.js';
 import * as onboardmod from '../core/onboard.js';
 import * as migratemod from '../core/migrate.js';
 import * as doctormod from '../core/doctor.js';
+import * as tax from '../core/taxonomy.js';
 import { EXIT } from '../core/util.js';
 
 const BIN = fileURLToPath(new URL('../bin/docgov', import.meta.url));
@@ -1802,4 +1803,85 @@ test('doctor: a source directory missing from package.json files is caught', () 
   const c = doctormod.run({ root: repo, pluginRoot: dir, env: {} }).checks.find((x) => x.id === 'package-files');
   assert.equal(c.status, 'fail');
   assert.match(c.message, /cli/);
+});
+
+// --- a project may extend the taxonomy, but not redefine it -------------------------
+
+test('taxonomy: a project class is registered, and re-registering replaces rather than accumulates', () => {
+  const spec = { 'qa.evidence': { label: 'QA Evidence', authority: 'implementation',
+    paths: ['qa/evidence/**'], sections: ['Scope', 'Method', 'Result'], soft: 300 } };
+  const before = tax.typeIds().length;
+  assert.deepEqual(tax.registerTypes(spec), ['qa.evidence']);
+  assert.equal(tax.typeIds().length, before + 1);
+  assert.equal(tax.typeDef('qa.evidence').hard, 540);          // derived from soft
+  assert.equal(tax.typeDef('qa.evidence').full, 'qa/evidence/'); // derived from the glob
+  assert.deepEqual(tax.customPathSignals(), [['qa/evidence/**', 'qa.evidence', 60, null]]);
+
+  // Config is loaded many times per process; the result must not depend on how often.
+  tax.registerTypes(spec);
+  assert.equal(tax.typeIds().length, before + 1);
+  tax.registerTypes(null);
+  assert.equal(tax.typeIds().length, before, 'a later load without the class must not leave it behind');
+});
+
+test('taxonomy: a project class cannot shadow one DocGov ships, or arrive underspecified', () => {
+  const bad = [
+    [{ 'product.prd': { paths: ['x/**'] } }, /DocGov ships/],
+    [{ Bad_Id: { paths: ['x/**'] } }, /family\.name/],
+    [{ 'qa.evidence': {} }, /paths` is required/],
+    [{ 'qa.evidence': { paths: ['x/**'], authority: 'supreme' } }, /authority must be one of/],
+    [{ 'qa.evidence': { paths: ['x/**'], soft: 500, hard: 100 } }, /hard >= soft/],
+    [{ 'qa.evidence': { paths: ['x/**'], visibility: 'semi' } }, /visibility must be/],
+  ];
+  for (const [spec, re] of bad) assert.throws(() => tax.registerTypes(spec), re, JSON.stringify(spec));
+  tax.registerTypes(null);
+});
+
+test('a project class classifies from its own paths, and everything else still abstains', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# Thing\n\nA thing.\n');
+  wf(dir, 'qa/evidence/login-sweep.md', '# Login sweep\n\n## Scope\n\nLogin.\n');
+  wf(dir, 'musings.md', '# Musing\n\nProse with no signal in it at all.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  const cfgFile = path.join(dir, '.docgov/config.yaml');
+  fs.appendFileSync(cfgFile, [
+    'taxonomy:', '  types:', '    qa.evidence:', '      label: QA Evidence',
+    '      authority: implementation', '      paths:', '        - "qa/evidence/**"',
+    '      sections: [Scope, Method, Result]', '      soft: 300', ''].join('\n'));
+
+  const seen = JSON.parse(cli(dir, ['whatis', '--path', 'qa/evidence/login-sweep.md', '--json']).out);
+  assert.equal(seen.type, 'qa.evidence');
+  assert.match(seen.signals.join(' '), /qa\/evidence/);
+
+  // The point of the whole classifier rebuild: a document with no evidence abstains. A custom
+  // class must be evidence, never a catch-all that absorbs whatever is left.
+  assert.equal(JSON.parse(cli(dir, ['whatis', '--path', 'musings.md', '--json']).out).type, 'unknown');
+
+  // `types` is the command whose job is to list classes, and it does not call ctx() — so it
+  // has to load the config itself or it is the one command that cannot see them.
+  const types = JSON.parse(cli(dir, ['types', '--json']).out);
+  const mine = types.find((t) => t.type === 'qa.evidence');
+  assert.ok(mine, 'docgov types must show a class the project defined');
+  assert.equal(mine.source, 'project');
+
+  // And the class is governed like any other: template, required sections, the checks.
+  assert.equal(cli(dir, ['create', 'qa.evidence', 'Checkout sweep']).code, EXIT.OK);
+  assert.ok(fs.existsSync(path.join(dir, 'qa/evidence/checkout-sweep.md')));
+  wf(dir, 'qa/evidence/empty.md', '---\ndocgov:\n  id: empty\n  type: qa.evidence\n---\n# Empty\n\nNothing.\n');
+  const out = cli(dir, ['check', '--all']).out;
+  assert.match(out, /missing-sections\s+qa\/evidence\/empty\.md/);
+});
+
+test('a policy pack can define classes for every repository that adopts it', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# Thing\n\nA thing.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  wf(dir, 'policy/org/policy.yaml', [
+    'taxonomy:', '  types:', '    sales.collateral:', '      label: Sales Collateral',
+    '      authority: audience', '      paths:', '        - "sales/**"', ''].join('\n'));
+  fs.appendFileSync(path.join(dir, '.docgov/config.yaml'), '\npolicy_packs:\n  - policy/org\n');
+  const types = JSON.parse(cli(dir, ['types', '--json']).out);
+  assert.ok(types.some((t) => t.type === 'sales.collateral' && t.source === 'project'));
 });

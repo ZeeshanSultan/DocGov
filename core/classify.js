@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { TYPES } from './taxonomy.js';
+import { TYPES, customPathSignals } from './taxonomy.js';
 import { matchGlob } from './util.js';
 
 /**
@@ -229,7 +229,11 @@ export function classify(doc) {
     // a tie, but on its own it does not make a classification trustworthy.
     else if (re.test(rel)) bump(type, Math.round(w * 0.6), `path matches ${re.source.slice(0, 34)}`);
   }
-  for (const [glob, type, w, authority] of PATH_SIGNALS) {
+  // A project's own classes score alongside the shipped ones and by the same rule: where a
+  // document sits is structural evidence, because somebody decided to put it there. They are
+  // evidence and not a catch-all — a document outside these globs still abstains rather than
+  // being forced into the nearest custom class.
+  for (const [glob, type, w, authority] of [...PATH_SIGNALS, ...customPathSignals()]) {
     if (!matchGlob(rel, glob)) continue;
     if (type) bump(type, w, `located in ${glob}`, 'structural');
     if (authority) for (const [id, t] of Object.entries(TYPES)) if (t.authority === authority) bump(id, w, `located in ${glob}`, 'structural');

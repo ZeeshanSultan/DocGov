@@ -1,3 +1,4 @@
+import { DocGovError } from './util.js';
 /**
  * The default documentation taxonomy: authority tiers, document classes, their
  * canonical locations in both layout profiles, size limits, required sections,
@@ -514,8 +515,117 @@ export const VISIBILITY_PATHS = [
   { glob: 'docs/04-security/threat-models/**', require: ['internal', 'confidential'] },
 ];
 
+/**
+ * The classes DocGov ships, frozen at module load — before any project can extend the
+ * taxonomy. This is what makes "you may not redefine a built-in" checkable at all.
+ */
+const BUILT_IN = new Set(Object.keys(TYPES));
+
 /** Generated trees: manual edits are denied, not warned (FEASIBILITY §3.2). */
 export const GENERATED_PATHS = ['docs/90-generated/**', 'docs/generated/**'];
+
+/**
+ * Classes a project defines for itself.
+ *
+ * No taxonomy enumerates every project's needs. Measured on three unfamiliar repositories,
+ * the honest residue after all the classification work is still working notes, sales
+ * collateral and QA evidence — documents a team may legitimately want governed under a class
+ * DocGov does not ship. The only escape hatch was abstention, which is correct and terminal.
+ *
+ * Four rules make this an extension rather than a hole in the model:
+ *
+ *  1. **A custom class may not redefine a shipped one.** Letting config change what
+ *     `product.prd` means would make every other repository's answer to "what is a PRD"
+ *     unverifiable. Shadowing is refused by id, loudly.
+ *  2. **It must declare its paths.** A class with no paths has no structural evidence, and
+ *     a class with no structural evidence can only ever be guessed at from prose — which is
+ *     precisely the confident wrongness the classifier was rebuilt to stop.
+ *  3. **Its paths are evidence, not a catch-all.** They score like the taxonomy's own path
+ *     signals. A document outside them still abstains rather than being forced into the
+ *     nearest custom class.
+ *  4. **Everything else is validated the same way the shipped classes are.** An unknown
+ *     authority tier, a bad id, a hard limit below the soft one: all refused at load, where
+ *     the person who wrote the config is still looking at it.
+ */
+
+const CUSTOM = new Map();
+const ID_RE = /^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/;
+
+/** The path globs custom classes claim, as classification evidence. */
+export function customPathSignals() {
+  const out = [];
+  for (const [id, t] of CUSTOM) for (const g of t.paths) out.push([g, id, 60, null]);
+  return out;
+}
+
+export function isCustomType(id) { return CUSTOM.has(id); }
+export function customTypeIds() { return [...CUSTOM.keys()]; }
+
+/**
+ * Validate and register `taxonomy.types` from config or a policy pack. Idempotent: config is
+ * loaded many times per process and the result must not depend on how often.
+ */
+export function registerTypes(spec) {
+  // Re-registering replaces: a second load with a smaller config must not leave the first
+  // load's classes behind, which would make behaviour depend on call order.
+  for (const id of CUSTOM.keys()) delete TYPES[id];
+  CUSTOM.clear();
+  if (!spec || typeof spec !== 'object') return [];
+
+  const registered = [];
+  for (const [id, raw] of Object.entries(spec)) {
+    const where = `taxonomy.types.${id}`;
+    if (!ID_RE.test(id)) {
+      throw new DocGovError(`${where}: a document class id is \`family.name\`, lowercase — for example \`qa.evidence\``);
+    }
+    if (BUILT_IN.has(id)) {
+      throw new DocGovError(`${where}: \`${id}\` is a document class DocGov ships. `
+        + 'Redefining it would make every other repository\'s answer to what it means unverifiable — choose a new id.');
+    }
+    if (!raw || typeof raw !== 'object') throw new DocGovError(`${where}: must be a mapping`);
+
+    const authority = raw.authority || 'implementation';
+    if (!AUTHORITY[authority]) {
+      throw new DocGovError(`${where}: authority must be one of ${Object.keys(AUTHORITY).join(', ')} (got ${authority})`);
+    }
+    const paths = [].concat(raw.paths || []).map(String).filter(Boolean);
+    if (!paths.length) {
+      throw new DocGovError(`${where}: \`paths\` is required. A class with no paths has no evidence `
+        + 'behind it, so nothing could ever be classified as one without guessing from prose.');
+    }
+    const soft = raw.soft == null ? 500 : Number(raw.soft);
+    const hard = raw.hard == null ? Math.round(soft * 1.8) : Number(raw.hard);
+    if (!Number.isFinite(soft) || !Number.isFinite(hard) || soft < 1 || hard < soft) {
+      throw new DocGovError(`${where}: soft and hard must be positive line counts with hard >= soft`);
+    }
+    const visibility = raw.visibility || 'internal';
+    if (!['internal', 'public', 'restricted'].includes(visibility)) {
+      throw new DocGovError(`${where}: visibility must be internal, public or restricted (got ${visibility})`);
+    }
+
+    // The canonical destination: what the project declared, or the fixed prefix of its first
+    // path glob — `qa/evidence/**` means `qa/evidence/`, which is where a new one goes.
+    const location = raw.location ? String(raw.location) : `${paths[0].split('*')[0].replace(/\/?$/, '/')}`;
+
+    const def = {
+      label: raw.label ? String(raw.label) : id,
+      authority,
+      lens: raw.lens ? String(raw.lens) : 'developer',
+      full: location, compact: location,
+      soft, hard,
+      quality: raw.quality == null ? 70 : Number(raw.quality),
+      visibility,
+      singleton: raw.singleton === true,
+      sections: [].concat(raw.sections || []).map(String),
+      paths,
+      custom: true,
+    };
+    TYPES[id] = def;
+    CUSTOM.set(id, def);
+    registered.push(id);
+  }
+  return registered;
+}
 
 export function authorityOf(type) { return (TYPES[type] || TYPES.unknown).authority; }
 export function tierOf(type) { return AUTHORITY[authorityOf(type)].tier; }

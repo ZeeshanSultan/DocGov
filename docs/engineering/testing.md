@@ -44,6 +44,9 @@ commit real files, and run the real binary as a subprocess.
 - **Every template against its own gate.** The test *every document class produces a document
   that satisfies its own gate* is what keeps every class honest — adding a class with mismatched
   sections fails immediately.
+- **That a published document whose source moved is reported at high severity**, naming the
+  relationship in words, and that adding a relationship type does not require editing a second
+  list to stop it being called invalid.
 - **That a superseded document is withheld from a context pack and named**, and that its prose
   never reaches the agent — the assertion that matters is the last one.
 - **That every persisted artifact declares a version**, that one from a newer DocGov is

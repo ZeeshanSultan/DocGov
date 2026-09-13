@@ -1,7 +1,7 @@
 import { changedFiles, lastCommitDate, commitsSince, isRepo, diffFor } from './git.js';
 import { codeNodesFor } from './graph.js';
 import { matchAny } from './util.js';
-import { AUTHORITY, isCurrent } from './taxonomy.js';
+import { AUTHORITY, isCurrent, DERIVATION_RELS } from './taxonomy.js';
 import { parseFrom as parseInvariants } from './invariants.js';
 import { MD_RE, CONTRACT_RE, isMappable } from './paths.js';
 
@@ -111,6 +111,34 @@ export function analyze({ root, cfg, docs, graph, base = 'HEAD' }) {
       action: stale.length ? 'Regenerate derived documentation' : `Register a document with generated_from: [${contractIdOf(c.path)}]`,
       reviewable: true,
     });
+  }
+
+  // ---- Derivation drift: a document written *from* another, whose source moved without it.
+  //
+  // This is a stronger statement than dependency drift. "Check these still agree" is advice;
+  // "this document was written from one that has since changed" says the derivative is
+  // describing something that moved underneath it. It is also the whole internal-to-external
+  // story: a public document derived from an internal one, where the internal one changed,
+  // is exactly the case that scanning public files for leaks can never catch.
+  for (const d of docs) {
+    if (!isCurrent(d)) continue;
+    for (const rel of DERIVATION_RELS) {
+      for (const srcId of d.relationships[rel] || []) {
+        const srcNode = graph.nodes.get(srcId);
+        if (!srcNode || !changedDocs.has(srcNode.path) || changedDocs.has(d.path)) continue;
+        const external = d.visibility === 'public' || d.visibility === 'generated-public';
+        findings.push({
+          id: null, kind: 'derivation', severity: external ? 'high' : 'medium',
+          document: d.path, documentId: d.id, documentAuthority: d.authority,
+          implementation: [srcNode.path], implementationCount: 1,
+          why: `${rel.replace(/_/g, ' ')} ${srcId}, which changed after it`,
+          action: external
+            ? `Rewrite ${d.path} from ${srcNode.path} — it is published, and its source has moved`
+            : `Update ${d.path} to match ${srcNode.path}`,
+          reviewable: true,
+        });
+      }
+    }
   }
 
   // ---- Dependency drift: a document's declared dependency moved ahead of it.

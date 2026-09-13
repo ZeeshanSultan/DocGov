@@ -36,6 +36,7 @@ import { AUTHORITY, TYPES, typeDef, FULL_NAMESPACES, COMPACT_NAMESPACES } from '
 import { staleness } from '../core/drift.js';
 import { EXIT, DocGovError, table, write, read, exists, toPosix, plural } from '../core/util.js';
 import * as schemamod from '../core/schema.js';
+import * as respmod from '../core/responsibility.js';
 
 const argv = process.argv.slice(2);
 
@@ -71,6 +72,8 @@ function parseFlags(args) {
 function list(v) { return v == null || v === true ? [] : String(v).split(',').map((s) => s.trim()).filter(Boolean); }
 function say(...a) { if (!JSONOUT) console.log(...a); }
 function emit(obj) { if (JSONOUT) console.log(JSON.stringify(obj, null, flags.compact ? 0 : 2)); }
+// Advice goes to stderr so it survives `--json` without corrupting the document on stdout.
+function warn(...a) { console.error(...a); }
 
 /** Load everything once. Every command sees the same snapshot. */
 function ctx({ requireInit = true } = {}) {
@@ -414,8 +417,61 @@ function cmdCreate() {
       ? loc + `${String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.md`
       : loc;
   }
-  if (exists(path.join(c.root, target)) && !flags.force)
+  // Before writing anything, ask who already owns this responsibility. The path being free
+  // says nothing: a fourth setup guide beside docs/getting-started.md is well-formed,
+  // correctly typed, in the right directory, and a second source of truth.
+  //
+  // An occupied destination short-circuits the search — there is no better answer to "who
+  // owns this" than the document already sitting where this one would go. It is answered
+  // here rather than thrown below so that `--check` reports it like any other owner instead
+  // of failing, which is the difference between an agent reading the answer and an agent
+  // seeing an error it will work around.
+  const occupied = exists(path.join(c.root, target));
+  const owned = occupied
+    ? (() => {
+      const at = c.docs.find((d) => d.path === target) || { id: target, path: target, title: target };
+      return { decision: 'update-existing', owner: at, candidates: [at],
+        why: `${target} already exists` };
+    })()
+    : respmod.whoOwns({ docs: c.docs, type, name, domain });
+  const owners = owned.candidates.map((d) => ({ id: d.id, path: d.path, title: d.title, type: d.type }));
+
+  // `--check` answers the question without writing, so an agent can ask before it decides.
+  if (flags.check) {
+    // Exit code carries the answer too, so a shell or a hook can branch on it without
+    // parsing anything: 0 means go ahead, 2 means read the candidates first.
+    const code = owned.decision === 'create-new' ? EXIT.OK : EXIT.REVIEW;
+    if (JSONOUT) {
+      emit({ decision: owned.decision, why: owned.why, type, path: target,
+        owner: owned.owner ? { id: owned.owner.id, path: owned.owner.path } : null,
+        candidates: owners, requiredSections: def.sections || [], softLimit: def.soft });
+      return code;
+    }
+    say(`${owned.decision}  ${owned.why}`);
+    if (owned.decision === 'create-new') say(`  would create ${target}`);
+    for (const d of owners) say(`  ${d.path}`);
+    return code;
+  }
+
+  // Blocking only where software can decide it: a class that holds one document, or an
+  // existing document of this class already named for what was asked. Everything softer is
+  // reported, because refusing to create a document somebody asked for is worse than a
+  // duplicate when the judgement is wrong.
+  if (occupied && !flags.force)
     throw new DocGovError(`${target} already exists. Edit it, or pass --force.`);
+  if (owned.decision === 'update-existing' && !flags.force) {
+    throw new DocGovError([
+      `${owned.why}.`,
+      ...owners.filter((d) => d.path !== owned.owner?.path).map((d) => `  see also ${d.path}`),
+      '',
+      'Update it rather than adding a second source of truth. If this really is a different',
+      'document, pass --force and say in it how it differs.',
+    ].join('\n'));
+  }
+  if (owned.decision === 'review-first') {
+    warn(`${owned.why} — check these before writing a second:`);
+    for (const d of owners) warn(`  ${d.path}`);
+  }
 
   // Wire the new document into the graph automatically: that is the difference
   // between a template and a governed document.
@@ -1184,7 +1240,8 @@ Start here
   fix [--dry-run] [--include split,..] [--skip ID,..]  run that plan on a branch; reverts itself if it breaks
 
 Every day
-  create <type> "<name>" [--domain D]        new doc: right place, right template, already wired up
+  create <type> "<name>" [--domain D]        new doc, right place, right template, wired up
+                                             --check asks who owns the topic, writes nothing
   check [--changed] [--base REF] [--all]     the checks that can block you; exit 1 blocks, 2 needs a look
   affected [--base REF] [paths...]           which docs your change affects
   checklist [--pr]                           those docs as a checklist; --pr prints the PR comment

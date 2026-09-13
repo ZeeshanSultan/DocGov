@@ -8,15 +8,17 @@ than any review process can repair it.
 
 ## Before creating any documentation
 
-1. **Check whether it already exists.** `docgov find "<topic>"` returns results in
-   authority order. If an authoritative document already covers the topic, update
+1. **Check whether it already exists.** `docgov create <type> "<name>" --check` names the
+   document that already owns the topic, and writes nothing. `docgov find "<topic>"` searches
+   wider, in authority order. If an authoritative document already covers the topic, update
    that document. Do not create a second one.
 2. **Find out what you are writing.** `docgov whatis --path <intended-file>` names
    the document class, its canonical location, its required sections and its limits.
 3. **Create it through DocGov.** `docgov create <type> "<name>" [--domain <d>]` puts
    it in the right place, applies the template, and wires it into the graph. A
    document not in the graph is invisible to impact analysis, which means nobody
-   will be told when it goes stale.
+   will be told when it goes stale. It refuses when an existing document of that
+   class already carries the name; when it refuses, edit that document instead.
 
 Never invent a new top-level Markdown file. Never invent a new documentation
 directory. The taxonomy has a class for almost everything; run `docgov types` before

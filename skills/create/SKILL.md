@@ -9,9 +9,13 @@ argument-hint: "<type> \"<name>\" [--domain <domain>]"
 
 ## Before writing anything
 
-1. **Check it does not already exist.** Run `docgov find "<topic>"`. The results are in
-   authority order. If an authoritative document already covers this, update that one —
-   a second document on the same subject is how contradictions are born.
+1. **Check it does not already exist.** Run `docgov create <type> "<name>" --check --json`.
+   It writes nothing and tells you who already owns the topic: `create-new` means go ahead,
+   `review-first` names documents worth reading first, and `update-existing` names the
+   document you should be editing instead. Read the named documents before you decide it is
+   wrong — a second document on the same subject is how contradictions are born.
+   For a wider look across every class, `docgov find "<topic>"` returns results in authority
+   order.
 
 2. **Pick the class.** `docgov types` lists all 56. If the user said "write docs for X",
    decide which class X actually is rather than defaulting to a guide. Do not invent a class.
@@ -29,6 +33,10 @@ docgov create <type> "<name>" --domain <domain>
 This puts the file in the canonical location, applies the template, declares the right
 authority and visibility, and wires `depends_on` / `implements` edges from documents it
 found to be related. It prints the required sections and the line limits.
+
+If it refuses because an existing document already owns the name, that is the answer: go and
+edit that document. `--force` exists, but using it means the new document must say how it
+differs from the one it now sits beside.
 
 ## Then write it
 

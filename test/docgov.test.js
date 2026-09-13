@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import * as yaml from '../core/yaml.js';
@@ -1009,6 +1009,62 @@ test('cli: a scan that could not see everything says so', () => {
   const j = JSON.parse(cli(dir, ['check', '--json']).out);
   assert.ok(Array.isArray(j.scanSkipped) && j.scanSkipped.length >= 1,
     'and CI must be able to see it too');
+});
+
+test('schema: everything DocGov persists declares a version', () => {
+  // The moment another repository holds one of these files, DocGov owns a format it cannot
+  // change freely. Four already carried `version: 1` and nothing ever read it back, so a
+  // future DocGov writing version 2 would have been silently misread rather than refused.
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  wf(dir, 'docs/a.md', '# D\n\nbody\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  cli(dir, ['review']);
+  cli(dir, ['checklist']);
+  cli(dir, ['tools']);
+  cli(dir, ['ignore', 'DUPLICATEID-0001', '--reason', 'schema coverage test']);
+
+  for (const f of ['config.yaml', 'registry.yaml', 'graph.json', 'suppressions.yaml',
+    'fix-plan.json', 'checklist.yaml', 'tools.json']) {
+    const raw = fs.readFileSync(path.join(dir, '.docgov', f), 'utf8');
+    assert.match(raw, /"?version"?\s*[:=]\s*"?\d+/, `${f} must declare a version`);
+  }
+});
+
+test('schema: a file from a newer DocGov is refused, an unversioned one is not', async () => {
+  const schema = await import('../core/schema.js');
+
+  // newer than this build → refuse rather than reinterpret
+  assert.throws(() => schema.check('config', { version: 99 }, '.docgov/config.yaml'),
+    /newer DocGov/, 'a future version must be refused');
+
+  // written before versions were enforced → treat as 1, never reject an existing adopter
+  assert.doesNotThrow(() => schema.check('config', { project: {} }, '.docgov/config.yaml'));
+  assert.doesNotThrow(() => schema.check('registry', { documents: {} }, '.docgov/registry.yaml'));
+
+  // nonsense version → say so plainly
+  assert.throws(() => schema.check('config', { version: 'two' }, 'f'), /positive integer/);
+
+  // stamp uses the declared current version, and every artifact has one
+  for (const artifact of Object.keys(schema.SCHEMA)) {
+    assert.equal(schema.stamp(artifact, {}).version, schema.SCHEMA[artifact]);
+  }
+});
+
+test('schema: the refusal reaches the user through a hook, which still fails open', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  const reg = path.join(dir, '.docgov', 'registry.yaml');
+  fs.writeFileSync(reg, fs.readFileSync(reg, 'utf8').replace(/^version: 1/m, 'version: 7'));
+
+  const r = spawnSync(process.execPath, [BIN, 'hook', 'session-start'],
+    { input: JSON.stringify({ cwd: dir }), encoding: 'utf8' });
+  assert.equal(r.status, 0, 'a hook must never break the session');
+  assert.match(r.stderr, /newer DocGov/, 'but it must say what it refused');
+  assert.equal(r.stdout.trim(), '', 'and inject nothing it could not verify');
 });
 
 test('cli: a plan may not move a document outside the repository', () => {

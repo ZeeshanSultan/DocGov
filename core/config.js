@@ -1,5 +1,6 @@
 import path from 'node:path';
 import * as yaml from './yaml.js';
+import * as schema from './schema.js';
 import { TYPES, MODES, VISIBILITY_PATHS, GENERATED_PATHS } from './taxonomy.js';
 import { read, exists, write, merge, DocGovError, findRepoRoot } from './util.js';
 
@@ -109,6 +110,7 @@ export function load(cwd = process.cwd()) {
   if (initialized) {
     try { raw = yaml.parse(read(file)) || {}; }
     catch (e) { throw new DocGovError(`${CONFIG_PATH} is not valid: ${e.message}`); }
+    raw = schema.check('config', raw, CONFIG_PATH);
   }
   let cfg = merge(defaults(), raw);
   // Excludes are a deny-list, so they accumulate rather than replace. Adding one entry

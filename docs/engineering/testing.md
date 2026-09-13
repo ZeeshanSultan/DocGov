@@ -44,6 +44,9 @@ commit real files, and run the real binary as a subprocess.
 - **Every template against its own gate.** The test *every document class produces a document
   that satisfies its own gate* is what keeps every class honest — adding a class with mismatched
   sections fails immediately.
+- **That every persisted artifact declares a version**, that one from a newer DocGov is
+  refused with a message naming both versions, and that a file predating the check still
+  loads — the last is the one that matters, because it is every existing adopter.
 - **That a page with TOML or JSON frontmatter comes out byte-identical**, and is named as
   left alone rather than silently skipped.
 - **That a scan which could not see everything says so**, in both the human output and

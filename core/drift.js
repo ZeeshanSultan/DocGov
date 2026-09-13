@@ -3,6 +3,7 @@ import { codeNodesFor } from './graph.js';
 import { matchAny } from './util.js';
 import { AUTHORITY } from './taxonomy.js';
 import { parseFrom as parseInvariants } from './invariants.js';
+import { MD_RE, CONTRACT_RE, isMappable } from './paths.js';
 
 /**
  * Drift engine (PRD §22, §23, §30).
@@ -16,9 +17,6 @@ import { parseFrom as parseInvariants } from './invariants.js';
 
 export const SEVERITY = ['critical', 'high', 'medium', 'low'];
 
-const CODE_RE = /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|rb|java|kt|swift|cs|php|ex|exs|scala|c|cc|cpp|h|hpp|sql)$/;
-const CONTRACT_RE = /\.(proto|graphql|gql)$|openapi.*\.(ya?ml|json)$|schema\.prisma$|(^|\/)schemas?\/.*\.json$/;
-const MD_RE = /\.mdx?$/;
 
 /**
  * @param {{root:string, cfg:object, docs:import('./document.js').Document[], graph:import('./graph.js').Graph, base?:string}} ctx
@@ -36,7 +34,9 @@ export function analyze({ root, cfg, docs, graph, base = 'HEAD' }) {
   const byPath = new Map(docs.map((d) => [d.path, d]));
 
   // ---- Forward drift: implementation moved, its documentation did not.
-  const codeChanges = changed.filter((c) => CODE_RE.test(c.path) && c.status !== 'D');
+  // Every changed non-documentation file is a candidate. Whether it matters is decided by
+  // the graph — if no document claims it, the lookup below finds nothing and costs nothing.
+  const codeChanges = changed.filter((c) => isMappable(c.path) && c.status !== 'D');
   const impactedByDoc = new Map();
   for (const c of codeChanges) {
     for (const node of codeNodesFor(graph, c.path)) {
@@ -73,7 +73,7 @@ export function analyze({ root, cfg, docs, graph, base = 'HEAD' }) {
     if (rank > 2) continue;                                      // only intent documents can be ahead of code
     const globs = [].concat(doc.meta.documents || [], cfg.domains?.[doc.domain]?.paths || []).map(String);
     if (!globs.length) continue;
-    const codeTouched = changedPaths.some((p) => CODE_RE.test(p) && matchAny(p, globs));
+    const codeTouched = changedPaths.some((p) => isMappable(p) && matchAny(p, globs));
     const testsTouched = changedPaths.some((p) => /(^|\/)(test|tests|spec|__tests__)\//.test(p) || /\.(test|spec)\./.test(p));
     if (codeTouched) continue;
     findings.push({

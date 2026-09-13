@@ -71,6 +71,7 @@ echo '{"cwd":"'$PWD'","tool_name":"Edit","tool_input":{"file_path":"'$PWD'/core/
 | Policy as data | [core/taxonomy.js](../core/taxonomy.js) | document classes, authority, relationships, limits. No logic. |
 | Configuration | [core/config.js](../core/config.js) | defaults, mode profiles, policy-pack merge |
 | One snapshot | [core/inventory.js](../core/inventory.js), [core/document.js](../core/document.js) | the filesystem is read once per run; nothing re-reads a file afterwards |
+| Path predicates | [core/paths.js](../core/paths.js) | one definition of mappable / code / contract / test. Defined once on purpose: drift and impact each used to carry a copy, and they drifted apart |
 | Derived state | [core/registry.js](../core/registry.js), [core/graph.js](../core/graph.js) | ids and edges |
 | Decisions | [core/check.js](../core/check.js), [core/drift.js](../core/drift.js), [core/impact.js](../core/impact.js) | everything that may block |
 | Judgement input | [core/context.js](../core/context.js), [core/find.js](../core/find.js), [core/health.js](../core/health.js) | what the model layer reads |

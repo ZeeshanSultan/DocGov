@@ -2,6 +2,7 @@ import { changedFiles, isRepo } from './git.js';
 import { codeNodesFor } from './graph.js';
 import { AUTHORITY } from './taxonomy.js';
 import { matchAny } from './util.js';
+import { MD_RE, CONTRACT_RE, TEST_RE, isCode, isMappable } from './paths.js';
 
 /**
  * Change impact analysis (PRD §25) and the documentation change manifest (PRD §27).
@@ -11,10 +12,6 @@ import { matchAny } from './util.js';
  * CI job can verify.
  */
 
-const CODE_RE = /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|rb|java|kt|swift|cs|php|ex|exs|scala|c|cc|cpp|h|hpp|sql)$/;
-const TEST_RE = /(^|\/)(test|tests|spec|__tests__)\/|\.(test|spec)\./;
-const CONTRACT_RE = /\.(proto|graphql|gql)$|openapi.*\.(ya?ml|json)$|schema\.prisma$/;
-const MD_RE = /\.mdx?$/;
 
 /**
  * @param {{root:string,cfg:object,docs:any[],graph:any,base?:string,paths?:string[]}} ctx
@@ -37,7 +34,7 @@ export function analyze({ root, cfg, docs, graph, base = 'HEAD', paths = null })
   const note = (id, why) => { if (!reasons.has(id)) reasons.set(id, []); reasons.get(id).push(why); };
 
   for (const c of changed) {
-    if (CODE_RE.test(c.path) || CONTRACT_RE.test(c.path)) {
+    if (isMappable(c.path)) {
       for (const node of codeNodesFor(graph, c.path)) {
         for (const e of graph.in(node.id, 'documents')) { seeds.add(e.from); note(e.from, `maps ${c.path}`); }
         if (node.domain) domains.add(node.domain);
@@ -75,7 +72,7 @@ export function analyze({ root, cfg, docs, graph, base = 'HEAD', paths = null })
   }
   affected.sort((a, b) => Number(b.required) - Number(a.required) || a.path.localeCompare(b.path));
 
-  const behaviorChanged = changedPaths.some((p) => CODE_RE.test(p) && !TEST_RE.test(p));
+  const behaviorChanged = changedPaths.some((p) => isCode(p) && !TEST_RE.test(p));
   const apiChanged = changedPaths.some((p) => CONTRACT_RE.test(p)) ||
     changedPaths.some((p) => /(^|\/)(api|routes?|controllers?|handlers?|endpoints?)\//.test(p));
   const securityChanged = changedPaths.some((p) => /(^|\/)(auth|authz|authentication|authorization|security|crypto|session|permissions?)\//i.test(p));

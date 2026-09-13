@@ -46,6 +46,11 @@ commit real files, and run the real binary as a subprocess.
   sections fails immediately.
 - **Parsers at their edges.** YAML round-trip identity, refusal of unsupported constructs,
   headings inside code fences, ordinal-prefixed headings.
+- **Path predicates, in both directions.** That the mapping predicate is broad enough to
+  cover the extensionless executables, Dockerfiles and assets a document maps, and that the
+  behaviour heuristic stays narrow enough not to call a CSV a code change. This pair had a
+  real bug: drift gated its graph lookup on a source-extension list, so `bin/docgov` was
+  invisible to the engine governing it.
 
 Each of these exists because it either caught a real defect or guards a promise made in the
 README. A test that guards nothing is deleted.

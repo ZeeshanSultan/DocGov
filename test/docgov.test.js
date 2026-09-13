@@ -512,6 +512,54 @@ test('drift: forward drift fires when mapped code changes and the document does 
   assert.ok(f.invariants.some((i) => i.startsWith('INV-LIC-004')), 'the threatened invariant travels with the finding');
 });
 
+test('drift: extensionless executables and build files are not invisible', () => {
+  // Regression: the forward-drift gate filtered candidates through a file-extension list
+  // before consulting the graph, so every extensionless executable, shell script and
+  // Dockerfile a document had explicitly mapped was silently skipped. DocGov's own
+  // bin/docgov was invisible to the drift engine that governs it.
+  const dir = tmpRepo();
+  wf(dir, 'bin/tool', '#!/usr/bin/env node\nconsole.log(1);\n');
+  wf(dir, 'scripts/deploy.sh', '#!/bin/sh\necho deploy\n');
+  wf(dir, 'Dockerfile', 'FROM node:22\n');
+  wf(dir, '.docgov/config.yaml', 'version: 1\nproject:\n  mode: team\n');
+  wf(dir, 'docs/architecture/tooling.md',
+    '---\ndocgov:\n  id: tooling\n  type: architecture.domain\n  visibility: internal\n'
+    + '  documents: ["bin/tool", "scripts/**", "Dockerfile"]\n---\n# Tooling\n');
+  commit(dir);
+
+  fs.writeFileSync(path.join(dir, 'bin/tool'), '#!/usr/bin/env node\nconsole.log(2);\n');
+  fs.writeFileSync(path.join(dir, 'Dockerfile'), 'FROM node:24\n');
+  fs.writeFileSync(path.join(dir, 'scripts/deploy.sh'), '#!/bin/sh\necho deployed\n');
+
+  const s = snapshot(dir);
+  const f = driftmod.analyze({ ...s, base: 'HEAD' }).findings.find((x) => x.kind === 'forward');
+  assert.ok(f, 'a document mapping extensionless files must still see them change');
+  assert.deepEqual(f.implementation.sort(), ['Dockerfile', 'bin/tool', 'scripts/deploy.sh']);
+
+  const i = impactmod.analyze({ ...s, base: 'HEAD' });
+  assert.ok(i.signals.behaviorChanged, 'a changed shell script is a behaviour change');
+  assert.ok(i.affected.find((a) => a.id === 'tooling')?.required);
+});
+
+test('paths: the mapping predicate is broad, the behaviour heuristic is not', async () => {
+  const { isMappable, isCode } = await import('../core/paths.js');
+  // Mappable: the graph decides relevance, so anything a document could claim qualifies.
+  for (const p of ['bin/docgov', 'Dockerfile', 'Makefile', 'scripts/x.sh', 'assets/logo.svg',
+    'openapi/api.yaml', 'src/a.ts', 'config.toml']) {
+    assert.ok(isMappable(p), `${p} must be mappable`);
+  }
+  for (const p of ['README.md', 'docs/a.mdx', '.docgov/graph.json']) {
+    assert.ok(!isMappable(p), `${p} must not be mappable`);
+  }
+  // Code: a heuristic, so a false negative is acceptable and a false positive is not.
+  for (const p of ['src/a.ts', 'scripts/x.sh', 'bin/docgov', 'Dockerfile', 'infra/main.tf']) {
+    assert.ok(isCode(p), `${p} should read as code`);
+  }
+  for (const p of ['assets/logo.svg', 'data/rows.csv', 'package.json', 'LICENSE']) {
+    assert.ok(!isCode(p), `${p} should not read as code`);
+  }
+});
+
 test('drift: no finding when the document moves with the code', () => {
   const dir = tmpRepo();
   wf(dir, 'src/a/x.ts', 'export const A = 1;\n');

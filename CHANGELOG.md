@@ -11,6 +11,20 @@ with a migration note.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Drift and impact were blind to extensionless files.** Both gated their graph lookup on a
+  source-extension list before asking whether any document claimed the path, so every
+  extensionless executable, shell script, `Dockerfile` and `Makefile` a document had
+  explicitly mapped was silently skipped — DocGov's own `bin/docgov` included, meaning the
+  engine could not see changes to itself. The mapping lookup now consults the graph directly;
+  extension matching is confined to the "did behaviour change" heuristic, where a false
+  negative costs nothing. Path predicates now live once in `core/paths.js`.
+
+### Added
+
+- `--version` / `-v` and `--help` / `-h` as aliases for the `version` and `help` commands.
+
 ## [0.1.0] — 2026-09-13
 
 First release. Complete and tested, but unproven outside its own repository —

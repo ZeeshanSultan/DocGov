@@ -37,7 +37,18 @@ import { staleness } from '../core/drift.js';
 import { EXIT, DocGovError, table, write, read, exists, toPosix, plural } from '../core/util.js';
 
 const argv = process.argv.slice(2);
-const cmd = argv[0];
+
+/**
+ * Conventional flags, because `docgov --version` is what people type and
+ * `docgov version` is what they have to discover. Without this, every
+ * `--version` / `--help` lands in the unknown-command path and exits 3, which
+ * reads as a broken install.
+ */
+const FLAG_ALIASES = {
+  '--version': 'version', '-v': 'version', '-V': 'version',
+  '--help': 'help', '-h': 'help', '-?': 'help',
+};
+const cmd = FLAG_ALIASES[argv[0]] || argv[0];
 const flags = parseFlags(argv.slice(1));
 const JSONOUT = flags.json === true;
 

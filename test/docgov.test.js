@@ -720,6 +720,22 @@ test('cli: a malformed hook payload fails open without output', () => {
   assert.equal(out.trim(), '', 'no stdout means no hook decision, which is the safe default');
 });
 
+test('cli: conventional --version and --help flags work, and exit 0', () => {
+  const dir = tmpRepo();
+  commit(dir);
+  for (const flag of ['--version', '-v', 'version']) {
+    const r = cli(dir, [flag]);
+    assert.equal(r.code, 0, `${flag} must exit 0, got ${r.code}`);
+    assert.match(r.out.trim(), /^\d+\.\d+\.\d+$/, `${flag} must print a bare version, got: ${r.out.trim()}`);
+  }
+  for (const flag of ['--help', '-h', 'help']) {
+    const r = cli(dir, [flag]);
+    assert.equal(r.code, 0, `${flag} must exit 0`);
+    assert.match(r.out, /documentation governance/, `${flag} must print usage`);
+  }
+  assert.equal(cli(dir, ['--nonsense']).code, EXIT.CONFIG, 'an unknown flag is still a config error');
+});
+
 test('cli: an uninitialized repository is told what to do, not crashed at', () => {
   const dir = tmpRepo();
   wf(dir, 'package.json', '{"name":"t"}');

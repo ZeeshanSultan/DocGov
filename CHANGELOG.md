@@ -13,6 +13,48 @@ with a migration note.
 
 Nothing yet.
 
+## [0.2.3] — 2026-09-13
+
+`docgov fix` could not produce a runnable plan on any of the three repositories
+it had been tried on. All three now can.
+
+### Fixed
+
+- **The destination rule collided with itself.** `<canonical dir>/<basename>`
+  discards the directory a document came from, so any two documents sharing a
+  basename resolved to the same path — and `fix` refuses to move two documents
+  onto each other. One repository produced 29 such collisions, which made its
+  entire plan unrunnable. Where the class has a directory, enough of the source
+  path is now kept to tell them apart: `core/docs/policy.md` becomes
+  `…/policies/core/policy.md`. The leading segment is used because in a monorepo
+  it names the module. A fixed-path class cannot be disambiguated — only one
+  document can be *the* changelog — so one holds it and the rest are left in
+  place for a human, and a destination already occupied by a document that is
+  staying is never taken.
+- **One unreadable document aborted the whole migration.** `patchDocgov`
+  re-parses the file it is annotating and threw, so two files out of 299 stopped
+  every other document from being migrated. Those documents are now left alone
+  and named with the parser's own message; a skip is never silent. Refusing to
+  guess at frontmatter is unchanged.
+- **Test fixtures are no longer governed as documentation.** A README inside a
+  fixture describes the fixture, and moving it out breaks the test that resolves
+  paths into that tree. `testdata/`, `fixtures/`, `__fixtures__/` and
+  `__snapshots__/` are excluded.
+
+### Added
+
+- **`review` says when a plan cannot run.** Destination collisions were only
+  discovered by `fix`, at execution, after the plan had been read and approved.
+  They are now named in the finding table, the closing summary and the plan
+  itself, with both sides flagged as needing a human — though after the fix
+  above there should rarely be any left.
+
+### Verified
+
+    fix --dry-run     chainsaw  exit 0    DefectDojo  exit 0    ShellPilot  exit 0
+
+All three were refusing before this release.
+
 ## [0.2.2] — 2026-09-13
 
 Nine bugs, found by running DocGov over three repositories it had never seen —

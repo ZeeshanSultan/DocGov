@@ -119,9 +119,32 @@ matching PRD and sets `implements` for you.
 ```bash
 docgov create architecture.adr "Use Postgres for the event log"
 docgov create user.guide "Deploying" --domain platform
+docgov create user.guide "Deploying" --check     # who owns this already? writes nothing
 ```
 
-Flags: `--domain`, `--path`, `--id`, `--owner`, `--visibility`, `--implements`, `--supersedes`, `--force`.
+**It searches before it creates.** A free path proves nothing — a fourth setup guide beside
+`docs/getting-started.md` is well-formed, correctly typed, in the right directory, and a second
+source of truth. So `create` asks who already owns the topic first, and answers in one of three
+ways:
+
+| Answer | What happens |
+|---|---|
+| `create-new` | Nothing already carries this name. It writes the document. |
+| `review-first` | A document of the same class shares words with your name. It lists them on stderr and writes the document anyway. |
+| `update-existing` | Either the class holds one document and it is taken, or an existing document of this class is already named for what you asked. **It refuses.** |
+
+Only the decidable cases block. Whether "Setup" and "Getting started" are the same
+responsibility is a judgement call, and DocGov does not block on judgement calls — it names the
+candidates and lets you decide. `--force` overrides a refusal; use it and say in the new
+document how it differs from the one it sat beside.
+
+`--check` answers the question without writing anything, which is what an agent should run
+before it decides. It exits `0` for `create-new` and `2` otherwise, so a script can branch on
+the exit code without parsing output; with `--json` it also returns the owner, the candidates,
+the required sections and the size limit.
+
+Flags: `--domain`, `--path`, `--id`, `--owner`, `--visibility`, `--implements`, `--supersedes`,
+`--check`, `--force`.
 
 Run `docgov types` to see them all before deciding yours isn't one of them.
 

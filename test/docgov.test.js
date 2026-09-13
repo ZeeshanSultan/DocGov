@@ -26,6 +26,7 @@ import * as supp from '../core/suppressions.js';
 import { scan as scanLeaks } from '../core/publish.js';
 import { find } from '../core/find.js';
 import { pack } from '../core/context.js';
+import { whoOwns } from '../core/responsibility.js';
 import { EXIT } from '../core/util.js';
 
 const BIN = fileURLToPath(new URL('../bin/docgov', import.meta.url));
@@ -1340,4 +1341,78 @@ test('templates: every document class produces a document that satisfies its own
     if (missing.length) failures.push(`${type}: template is missing its own required sections: ${missing.join(', ')}`);
   }
   assert.deepEqual(failures, [], failures.join('\n'));
+});
+
+// --- search before create (responsibility ownership) --------------------------------
+
+test('whoOwns refuses a second document of a single-document class', () => {
+  const docs = [{ id: 'readme', path: 'README.md', title: 'Readme', type: 'user.readme', status: 'active' }];
+  const r = whoOwns({ docs, type: 'user.readme', name: 'Read me first' });
+  assert.equal(r.decision, 'update-existing');
+  assert.equal(r.owner.path, 'README.md');
+});
+
+test('whoOwns treats a name the existing document already covers as the same responsibility', () => {
+  const docs = [{ id: 'a', path: 'docs/user/deploying.md', title: 'Deploying', type: 'user.guide', status: 'active' }];
+  // The class label is not part of the topic, and plurals are not a different subject.
+  for (const name of ['Deploying', 'Deploying guide', 'Deployings']) {
+    assert.equal(whoOwns({ docs, type: 'user.guide', name }).decision, 'update-existing', name);
+  }
+});
+
+test('whoOwns reports a narrower document rather than refusing it', () => {
+  const docs = [{ id: 'a', path: 'docs/user/deploying.md', title: 'Deploying', type: 'user.guide', status: 'active' }];
+  const r = whoOwns({ docs, type: 'user.guide', name: 'Deploying to Render' });
+  assert.equal(r.decision, 'review-first');
+  assert.deepEqual(r.candidates.map((d) => d.path), ['docs/user/deploying.md']);
+});
+
+test('whoOwns lets an unrelated document through, and ignores superseded owners', () => {
+  const docs = [
+    { id: 'a', path: 'docs/user/deploying.md', title: 'Deploying', type: 'user.guide', status: 'active' },
+    { id: 'b', path: 'docs/user/backups-old.md', title: 'Backups', type: 'user.guide', status: 'superseded' },
+  ];
+  assert.equal(whoOwns({ docs, type: 'user.guide', name: 'Quantum tunnelling' }).decision, 'create-new');
+  // A superseded guide must not block the replacement that supersedes it.
+  assert.equal(whoOwns({ docs, type: 'user.guide', name: 'Backups' }).decision, 'create-new');
+});
+
+test('create refuses a competing document and --check answers without writing', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# Thing\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  assert.equal(cli(dir, ['create', 'user.guide', 'Deploying to Fly']).code, 0);
+
+  const refused = cli(dir, ['create', 'user.guide', 'Deploying']);
+  assert.equal(refused.code, EXIT.CONFIG);
+  assert.match(refused.out, /deploying-to-fly\.md is already/);
+  assert.equal(fs.existsSync(path.join(dir, 'docs/user/deploying.md')), false);
+
+  // --force is the documented way past it, and it is the only way past it.
+  assert.equal(cli(dir, ['create', 'user.guide', 'Deploying', '--force']).code, 0);
+  assert.equal(fs.existsSync(path.join(dir, 'docs/user/deploying.md')), true);
+
+  // --check writes nothing and carries its answer in the exit code as well as the output.
+  const check = cli(dir, ['create', 'user.guide', 'Deploying to Fly io', '--check', '--json']);
+  assert.equal(check.code, EXIT.REVIEW);
+  const spec = JSON.parse(check.out);
+  assert.equal(spec.decision, 'update-existing');
+  assert.equal(spec.owner.path, 'docs/user/deploying-to-fly.md');
+  assert.equal(fs.existsSync(path.join(dir, 'docs/user/deploying-to-fly-io.md')), false);
+
+  const fresh = cli(dir, ['create', 'user.guide', 'Rotating API keys', '--check', '--json']);
+  assert.equal(fresh.code, EXIT.OK);
+  assert.equal(JSON.parse(fresh.out).decision, 'create-new');
+});
+
+test('create --check answers for an occupied path instead of failing', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# Thing\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  cli(dir, ['create', 'user.guide', 'Backups']);
+  const r = cli(dir, ['create', 'user.guide', 'Backups', '--check', '--json']);
+  assert.equal(r.code, EXIT.REVIEW);
+  assert.equal(JSON.parse(r.out).owner.path, 'docs/user/backups.md');
 });

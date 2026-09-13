@@ -97,6 +97,11 @@ commit real files, and run the real binary as a subprocess.
   every `--json` payload over 8 KB arrived truncated mid-string.
 - **Parsers at their edges.** YAML round-trip identity, refusal of unsupported constructs,
   headings inside code fences, ordinal-prefixed headings.
+- **Both sides of a refusal.** `create` refusing a competing document is only worth having if
+  it refuses the right ones, so the tests assert the false-positive side as hard as the true
+  one: a narrower name is reported and still written, an unrelated name is written silently,
+  and a superseded document does not block the replacement that supersedes it. A refusal test
+  that only covers the refusal ships a tool nobody can create a document with.
 - **Path predicates, in both directions.** That the mapping predicate is broad enough to
   cover the extensionless executables, Dockerfiles and assets a document maps, and that the
   behaviour heuristic stays narrow enough not to call a CSV a code change. This pair had a

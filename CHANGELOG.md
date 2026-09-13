@@ -11,7 +11,21 @@ with a migration note.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **`create` searches before it creates.** It only ever checked whether its own target path
+  was taken, so `docgov create user.guide "Setup"` cheerfully wrote a fourth setup guide
+  beside `docs/getting-started.md` — well-formed, correctly typed, in the right directory,
+  and a second source of truth. It now asks who already owns the topic first. It refuses
+  where software can decide it: a single-document class that is already held, or an existing
+  document of the same class already named for everything you asked for. Where the names
+  merely share vocabulary it names the candidates and writes the document anyway, because
+  whether "Setup" and "Getting started" are one responsibility is a judgement call.
+  `--force` overrides a refusal.
+- **`create --check`** answers the ownership question and writes nothing — what an agent
+  should run before it decides. Exits `0` for `create-new` and `2` otherwise, so a script can
+  branch on the exit code; `--json` adds the owner, the candidates, the required sections and
+  the size limit.
 
 ## [0.2.4] — 2026-09-13
 

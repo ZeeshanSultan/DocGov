@@ -1011,6 +1011,39 @@ test('cli: a scan that could not see everything says so', () => {
     'and CI must be able to see it too');
 });
 
+test('lifecycle: a superseded document is withheld from a context pack, and said so', () => {
+  // A superseded document is usually still true about the past, which is what makes it
+  // dangerous: nothing in its prose says it was replaced, so an agent reads it as current.
+  // Withholding it silently would be worse — a thin pack has to be explainable.
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  wf(dir, 'docs/auth-v2.md', '---\ndocgov:\n  id: auth-v2\n  type: architecture.domain\n  status: active\n'
+    + '  relationships:\n    supersedes: [auth-v1]\n---\n# Auth\n\nVerified against the new issuer.\n');
+  wf(dir, 'docs/auth-v1.md', '---\ndocgov:\n  id: auth-v1\n  type: architecture.domain\n  status: superseded\n'
+    + '---\n# Auth (old)\n\nVerified against the legacy issuer.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+
+  const out = cli(dir, ['brief', 'auth']).out;
+  assert.match(out, /auth-v2\.md/, 'the current document is included');
+  assert.match(out, /Superseded — deliberately not included/, 'and the withholding is stated');
+  assert.match(out, /auth-v1\.md/, 'naming what was withheld');
+  const body = out.split('Superseded — deliberately not included')[0];
+  assert.doesNotMatch(body, /legacy issuer/, 'the superseded prose must not reach the agent');
+});
+
+test('lifecycle: a historical document is not reported as drifting', async () => {
+  // A superseded document is not trying to describe today's code. Asking somebody to
+  // re-sync a document whose whole point is that it is finished buries the real findings.
+  const tax = await import('../core/taxonomy.js');
+  assert.equal(tax.isCurrent({ status: 'active' }), true);
+  assert.equal(tax.isCurrent({ status: 'draft' }), true, 'a draft is still meant to become true');
+  for (const status of ['superseded', 'deprecated', 'archived']) {
+    assert.equal(tax.isCurrent({ status }), false, `${status} is not current`);
+  }
+  assert.equal(tax.isCurrent({}), true, 'no status means active, not historical');
+});
+
 test('schema: everything DocGov persists declares a version', () => {
   // The moment another repository holds one of these files, DocGov owns a format it cannot
   // change freely. Four already carried `version: 1` and nothing ever read it back, so a

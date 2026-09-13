@@ -1,4 +1,4 @@
-import { AUTHORITY, typeDef } from './taxonomy.js';
+import { AUTHORITY, typeDef, isCurrent } from './taxonomy.js';
 import { collect as collectInvariants, applicable } from './invariants.js';
 
 /**
@@ -18,8 +18,21 @@ export function pack({ cfg, docs, graph, topic, budget = DEFAULT_BUDGET, include
   const needle = String(topic || '').toLowerCase();
   const byId = new Map(docs.map((d) => [d.id, d]));
 
+  // A superseded or deprecated document is usually still true about the past, which is what
+  // makes it dangerous here: nothing in its prose says it was replaced, so an agent reads it
+  // as current. It is recorded as superseded rather than silently dropped, so a pack that
+  // looks thin can be explained.
+  const superseded = [];
   const scored = docs.map((d) => ({ doc: d, score: relevance(d, needle, cfg) }))
-    .filter((x) => x.score > 0)
+    .filter((x) => {
+      if (x.score <= 0) return false;
+      if (!isCurrent(x.doc)) {
+        superseded.push({ path: x.doc.path, id: x.doc.id, status: x.doc.status,
+          supersededBy: x.doc.meta?.relationships?.superseded_by || null });
+        return false;
+      }
+      return true;
+    })
     .sort((a, b) => b.score - a.score);
 
   const seedIds = scored.slice(0, 6).map((x) => x.doc.id);
@@ -51,7 +64,7 @@ export function pack({ cfg, docs, graph, topic, budget = DEFAULT_BUDGET, include
   const contracts = [...graph.nodes.values()].filter((n) => n.kind === 'contract' &&
     (n.path.toLowerCase().includes(needle) || seen.has(n.id)));
 
-  return render({ topic, selected, invariants, contracts, budget, cfg });
+  return render({ topic, selected, invariants, contracts, budget, cfg, superseded });
 }
 
 function relevance(d, needle, cfg) {
@@ -73,7 +86,7 @@ function relevance(d, needle, cfg) {
  * Pack rendering: full body while the budget lasts, then headings-only so the
  * agent still knows the document exists and can read it on demand.
  */
-function render({ topic, selected, invariants, contracts, budget }) {
+function render({ topic, selected, invariants, contracts, budget, superseded = [] }) {
   const L = [];
   L.push(`# DocGov context pack: ${topic}`);
   L.push('');
@@ -122,8 +135,22 @@ function render({ topic, selected, invariants, contracts, budget }) {
     L.push('');
   }
 
+  if (superseded.length) {
+    L.push('## Superseded — deliberately not included');
+    L.push('');
+    L.push('These match the topic but are no longer what to follow. They are listed so a thin');
+    L.push('pack is explainable, not so they can be read as current.');
+    L.push('');
+    for (const x of superseded.slice(0, 10)) {
+      L.push(`- \`${x.path}\` — ${x.status}${x.supersededBy ? `, superseded by \`${x.supersededBy}\`` : ''}`);
+    }
+    if (superseded.length > 10) L.push(`- … and ${superseded.length - 10} more`);
+    L.push('');
+  }
+
   L.push('---');
   L.push(`${selected.length} document(s) considered, ${selected.length - truncated.length} included in full, ${invariants.length} invariant(s).`);
+  if (superseded.length) L.push(`${superseded.length} superseded document(s) withheld.`);
   return L.join('\n');
 }
 

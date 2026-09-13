@@ -32,6 +32,7 @@ import * as onboardmod from '../core/onboard.js';
 import * as migratemod from '../core/migrate.js';
 import * as doctormod from '../core/doctor.js';
 import * as tax from '../core/taxonomy.js';
+import * as lensmod from '../core/lenses.js';
 import { EXIT } from '../core/util.js';
 
 const BIN = fileURLToPath(new URL('../bin/docgov', import.meta.url));
@@ -1884,4 +1885,85 @@ test('a policy pack can define classes for every repository that adopts it', () 
   fs.appendFileSync(path.join(dir, '.docgov/config.yaml'), '\npolicy_packs:\n  - policy/org\n');
   const types = JSON.parse(cli(dir, ['types', '--json']).out);
   assert.ok(types.some((t) => t.type === 'sales.collateral' && t.source === 'project'));
+});
+
+// --- two reviews, two standards, configured separately -------------------------------
+
+test('lenses: the class chooses the standard, and every lens has a document behind it', () => {
+  const cfg = { review: { audience: true, leak: true } };
+  assert.equal(lensmod.lensFor(cfg, 'user.readme').lens, 'readme');
+  assert.equal(lensmod.lensFor(cfg, 'operations.runbook').lens, 'operations');
+  assert.equal(lensmod.lensFor(cfg, 'architecture.adr').lens, 'architecture');
+  // A lens the model is told to apply must be a standard a human can read and disagree with.
+  for (const l of Object.keys(lensmod.LENSES)) assert.ok(lensmod.lensText(l), `lenses/${l}.md is missing`);
+});
+
+test('lenses: audience and leak are configured separately, and audience can be per lens', () => {
+  assert.equal(lensmod.isEnabled({}, 'leak'), true, 'both default on');
+  assert.equal(lensmod.enabledLenses({}).length, Object.keys(lensmod.LENSES).length);
+
+  // The two are different questions with opposite false-positive tolerances, so turning one
+  // off must never turn the other off.
+  const noLeak = { review: { leak: false } };
+  assert.equal(lensmod.isEnabled(noLeak, 'leak'), false);
+  assert.equal(lensmod.enabledLenses(noLeak).length, Object.keys(lensmod.LENSES).length);
+
+  const some = { review: { audience: ['operations', 'security'] } };
+  assert.deepEqual(lensmod.enabledLenses(some), ['operations', 'security']);
+  assert.equal(lensmod.isEnabled(some, 'leak'), true);
+  assert.equal(lensmod.lensFor(some, 'user.readme').enabled, false);
+  assert.equal(lensmod.lensFor(some, 'operations.runbook').enabled, true);
+});
+
+test('the write hook hands over the standard the document will be judged against', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# Thing\n\nA thing.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+
+  const hook = (file, content, tool = 'Write') => {
+    const input = JSON.stringify({ cwd: dir, tool_name: tool,
+      tool_input: { file_path: path.join(dir, file), content } });
+    const r = spawnSync(process.execPath, [BIN, 'hook', 'pre-tool'], { input, encoding: 'utf8', cwd: dir });
+    assert.equal(r.status, EXIT.OK);
+    if (!r.stdout.trim()) return '';
+    return JSON.parse(r.stdout).hookSpecificOutput?.additionalContext || '';
+  };
+
+  const runbook = hook('docs/runbooks/failover.md', '# Failover runbook\n\n## Steps\n\nDo it.\n');
+  assert.match(runbook, /The standard for a Runbook/);
+  assert.match(runbook, /3am/, 'the operations lens itself must be handed over, not just its name');
+  assert.ok(!/five minutes/.test(runbook), 'a runbook must not be judged by the README standard');
+
+  // Leak detection is the other question, and it runs on an edit too: a credential is just as
+  // published when it is pasted into a document that already existed.
+  const leaked = hook('README.md', '# T\n\nRun with AKIAIOSFODNN7EXAMPLE against db01.internal.corp\n', 'Edit');
+  assert.match(leaked, /DocGov \(leak\)/);
+  assert.match(leaked, /AWS access key id/);
+  assert.match(leaked, /a clean scan is not proof/, 'a clean scan must never be reported as proof of safety');
+
+  // Switched off separately: no leak reporting, and only the lenses that were named.
+  fs.appendFileSync(path.join(dir, '.docgov/config.yaml'), '\nreview:\n  leak: false\n  audience: [operations]\n');
+  assert.equal(hook('README.md', '# T\n\nAKIAIOSFODNN7EXAMPLE\n', 'Edit'), '');
+  assert.match(hook('docs/runbooks/other.md', '# Other runbook\n\n## Steps\n\nDo it.\n'), /The standard for a Runbook/);
+  assert.ok(!/The standard for/.test(hook('docs/guides/new-guide.md', '# A guide\n\nHow to do a thing you want to do.\n')));
+});
+
+test('the two model reviews are two prompts, each stating its own tolerance', () => {
+  const hooks = JSON.parse(fs.readFileSync(path.join(ROOT, 'hooks/hooks.json'), 'utf8'));
+  const prompts = (hooks.hooks.PreToolUse || []).flatMap((e) => (e.hooks || []).filter((h) => h.type === 'prompt'));
+  assert.equal(prompts.length, 2, 'audience fit and leak detection are different questions');
+
+  const [audience, leak] = prompts.map((p) => p.prompt);
+  // Audience review is a quality judgement: a false positive costs an argument about prose.
+  assert.match(audience, /Be conservative/);
+  assert.match(audience, /name the lens you judged against/);
+  for (const l of Object.keys(lensmod.LENSES)) assert.match(audience, new RegExp(`\\b${l}\\b`), `lens ${l} is missing from the audience prompt`);
+
+  // Leak detection is a security question: a false negative publishes a secret.
+  assert.match(leak, /false positive is cheap and a false negative is not/);
+  assert.match(leak, /never means the document contains no secrets/);
+
+  // Neither may ever block a write.
+  for (const p of prompts) assert.equal(p.continueOnBlock, true);
 });

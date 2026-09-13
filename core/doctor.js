@@ -7,6 +7,7 @@ import * as reg from './registry.js';
 import * as supp from './suppressions.js';
 import * as inv from './inventory.js';
 import { isRepo } from './git.js';
+import { isEnabled, enabledLenses, LENSES } from './lenses.js';
 import { read, exists } from './util.js';
 
 /**
@@ -269,6 +270,20 @@ function repository(root) {
       ? warn('agent-rules', `.claude/rules/documentation.md disagrees with the config (${stale.join(', ')})`,
         'run `docgov setup --rules` to regenerate it; it is generated but committed, so it does not self-heal')
       : ok('agent-rules', '.claude/rules/documentation.md matches the config'));
+  }
+
+  // Which reviews are actually in force. A review that is switched off is not a failure —
+  // but silently reviewing less than the user believes is the failure this command exists for,
+  // and neither state is visible anywhere else.
+  const on = enabledLenses(cfg);
+  const leak = isEnabled(cfg, 'leak');
+  if (!on.length && !leak) {
+    out.push(warn('review', 'both audience review and leak detection are switched off',
+      'nothing judges a document here beyond the deterministic checks; set `review:` in .docgov/config.yaml'));
+  } else {
+    const audience = on.length === Object.keys(LENSES).length ? 'all lenses'
+      : on.length ? on.join(', ') : 'off';
+    out.push(ok('review', `audience: ${audience} · leak detection: ${leak ? 'on' : 'off'}`));
   }
 
   // Duplicate ids make the graph ambiguous, which makes every lookup through it a coin toss.

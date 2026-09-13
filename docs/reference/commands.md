@@ -326,6 +326,39 @@ docgov ignore --remove DRIFT-20828
 **Writes:** `.docgov/suppressions.yaml`. Suppressed findings stay visible in `ignore list` and
 in every report. Expired ones get their own section in `check`. Nothing disappears quietly.
 
+### Choosing what gets reviewed
+
+Two model reviews run on a documentation write, and they are two different questions:
+
+```yaml
+review:
+  audience: true        # or a list of lenses: [operations, security]
+  leak: true
+```
+
+**Audience fit** asks whether the document matches the standard for what it is. There is no
+general standard for "good documentation" — a README optimises for a stranger getting running
+in five minutes, a runbook for being executable at 3am by someone who did not write it, an ADR
+for whether the reasoning survives the author leaving. DocGov picks the lens from the document
+class (it knows the class; that is not a judgement call) and hands the model the lens itself,
+from `lenses/`, so a finding names the standard it was judged against and you can disagree with
+the standard rather than with the model. It is deliberately conservative: a false positive here
+costs an argument about prose somebody was right about.
+
+**Leak detection** asks whether something private is about to be written down. A deterministic
+pattern scan runs first, in the write hook, with no model involved — and it runs on an edit as
+well as a new file, because a credential is just as published when it is pasted into a document
+that already existed. The model covers only what pattern matching cannot: the thing that is
+private because of what it means. It is deliberately *not* conservative: ten seconds looking at
+a string that turned out to be fine beats one published credential.
+
+A clean leak result means no known pattern matched and nothing stood out. It never means the
+document contains no secrets, and it is reported that way everywhere.
+
+`docgov doctor` prints which of these are in force. Note that the two model prompts themselves
+cannot be switched off from config — Claude Code offers no way to gate a `prompt` hook — so
+`review:` governs the deterministic half and the lens DocGov hands over.
+
 ### Defining your own document classes
 
 The taxonomy ships 60 classes. It does not enumerate every project's needs — measured on three

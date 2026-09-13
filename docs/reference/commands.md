@@ -75,6 +75,21 @@ documents your stack implies you should have but don't.
 docgov review
 ```
 
+The plan is grouped by how much of it you have to read, not by what kind of action each one
+is, and it leads with the shape so you can size it up before reading a single line:
+
+```
+SAFE               38  frontmatter and new documents; nothing moves
+HIGH CONFIDENCE     5  files move to their canonical place, links repaired
+NEEDS REVIEW       24  DocGov was not sure; read these before running `fix`
+```
+
+The first two are mechanical and reversible. The third is the part actually asking you
+something — and it holds two different things: moves and classifications that `fix` **will**
+carry out (what is uncertain is what the document *is*, not the operation), and splits, merges
+and extractions that rewrite prose and so are never automatic. Each action carries its `tier`
+in the JSON too.
+
 **Writes:** `.docgov/fix-plan.md` (for you to read and edit) and `.docgov/fix-plan.json` (for
 `docgov fix` to execute). Nothing else.
 

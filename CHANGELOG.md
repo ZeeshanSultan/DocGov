@@ -43,6 +43,16 @@ with a migration note.
   merely share vocabulary it names the candidates and writes the document anyway, because
   whether "Setup" and "Getting started" are one responsibility is a judgement call.
   `--force` overrides a refusal.
+### Changed
+
+- **The fix plan is grouped by what it asks of you**, not by what kind of action each one is,
+  and it leads with the shape: `SAFE` / `HIGH CONFIDENCE` / `NEEDS REVIEW` with a count each.
+  Two thousand actions in one undifferentiated list read as "this tool wants to rewrite my
+  repository" and nothing on the page said which tenth needed a decision. The tier is derived
+  from data every action already carried; nothing about what `fix` executes has changed. Each
+  action carries its `tier` in the JSON. The old Risk table is gone — it was the same fact,
+  said twice.
+
 - **`docgov judge` records what a model concluded, as a different kind of object.** Software
   decides what blocks and a model decides what is subjective; the risk was never that the two
   were stored together but that they *rendered* the same. Judgements live in

@@ -66,6 +66,8 @@ The shape of the solution was forced by two facts about Claude Code, both establ
     taxonomy +        one snapshot        decisions
   config (policy      inventory →      check · drift ·
     as data)        document → graph   impact · migrate
+                     paths (shared
+                      predicates)
                            │
                            ▼
                       .docgov/
@@ -106,6 +108,7 @@ review packets with the diff hunks attached → an agent reads kilobytes instead
 | Drift reports facts, not verdicts | "This document is now unverified" is decidable. "The prose contradicts the code" is not, and claiming otherwise would cost more trust than the feature is worth. |
 | Narrow, then ask | Contradiction detection across 100 documents is ~5,000 model pairs. Local tf-idf gets to ~20 candidates first. |
 | Git is the audit log | No parallel history. Migration is revertible because git makes it so, which is the only honest basis for "without losing information". |
+| The graph decides relevance, not a file-extension list | A mapping lookup asks "does a document claim this path?", and the graph answers it. Gating that on a list of source extensions discarded every extensionless executable, shell script and Dockerfile a document had explicitly mapped — `bin/docgov` included, so the engine could not see changes to itself. Extension lists are for heuristics only, where a false negative is free. |
 | Policy packs, not a service | Organizational governance ships as git-distributed config. A backend would contradict the local-first promise. |
 
 ## Where to go next

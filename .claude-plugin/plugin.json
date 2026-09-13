@@ -1,7 +1,7 @@
 {
   "name": "docgov",
   "displayName": "DocGov",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Documentation governance for agentic development: taxonomy, authority graph, drift detection, and deterministic gates that run on every write.",
   "author": { "name": "DocGov" },
   "license": "MIT",

@@ -55,8 +55,10 @@ bugs or proposals, not vulnerabilities. Open an issue.
 
 | Version | Supported |
 |---|---|
-| 1.0.x | yes |
-| < 1.0 | no |
+| 0.1.x | yes |
+
+DocGov is at 0.x: there is one supported line, and it is the latest one. Security fixes go
+out as a patch release on it rather than being backported.
 
 ## Reporting a vulnerability
 

@@ -1,6 +1,6 @@
 {
   "name": "docgov",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Documentation governance layer for agentic software development",
   "type": "module",
   "license": "MIT",

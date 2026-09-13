@@ -3,15 +3,18 @@
 All notable changes to DocGov. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-Two things count as breaking, because people's repositories depend on them:
-a change to `docgov.id` semantics or to the frontmatter schema, and a rule moving from
-warning to blocking in an existing project mode.
+DocGov is at 0.x, so a **minor** bump may break compatibility — semver permits it and this
+is young enough to need the room. Two things count as breaking, because people's repositories
+depend on them: a change to `docgov.id` semantics or to the frontmatter schema, and a rule
+moving from warning to blocking in an existing project mode. Either will be called out here
+with a migration note.
 
 ## [Unreleased]
 
-## [1.0.0] — 2026-09-13
+## [0.1.0] — 2026-09-13
 
-First release.
+First release. Complete and tested, but unproven outside its own repository —
+hence 0.1.0 rather than 1.0.0.
 
 ### Added
 
@@ -52,5 +55,5 @@ First release.
 - Capability discovery is filesystem probing, not an API, so it will drift as the
   ecosystem changes. Absence always degrades to "DocGov does it itself".
 
-[Unreleased]: https://github.com/ZeeshanSultan/DocGov/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/ZeeshanSultan/DocGov/releases/tag/v1.0.0
+[Unreleased]: https://github.com/ZeeshanSultan/DocGov/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ZeeshanSultan/DocGov/releases/tag/v0.1.0

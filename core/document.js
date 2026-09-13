@@ -73,11 +73,15 @@ export class Document {
   /** Markdown links, split into internal file refs and external URLs. */
   links() {
     const out = { internal: [], external: [], anchors: [] };
-    const re = /\[(?:[^\]\\]|\\.)*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+    // CommonMark allows balanced parentheses inside a link destination, and also
+    // `<...>` around one. Stopping at the first `)` truncated every path containing
+    // them — Next.js route groups like `app/(dashboard)/billy/` are the common case,
+    // and the truncated path was then reported as a broken link.
+    const re = /\[(?:[^\]\\]|\\.)*\]\(\s*(?:<([^>\n]*)>|((?:[^()\s\\]|\\.|\([^()\s]*\))+))(?:\s+"[^"]*")?\s*\)/g;
     let m;
     const body = this.body.replace(/```[\s\S]*?```/g, '').replace(/`[^`\n]*`/g, '');
     while ((m = re.exec(body))) {
-      const target = m[1];
+      const target = m[1] !== undefined ? m[1] : m[2];
       if (/^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith('//')) out.external.push(target);
       else if (target.startsWith('#')) out.anchors.push(target);
       else out.internal.push(target.split('#')[0]);

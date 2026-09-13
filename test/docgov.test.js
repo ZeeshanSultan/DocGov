@@ -308,6 +308,17 @@ test('links: external, anchor and mailto targets are never rewritten', () => {
   assert.equal(rewriteLinks(src, 'docs/a.md', 'other/a.md', new Map([['docs/z.md', 'q/z.md']])), src);
 });
 
+test('links: a destination may contain balanced parens or be angle-bracketed', () => {
+  // Next.js route groups put parentheses in real paths. Stopping at the first `)`
+  // truncated the destination and then reported the truncation as a broken link.
+  const body = '[a](../ui_new/src/app/(dashboard)/billy/) [b](./plain.md) '
+    + '[c](<spaced path.md>) [d](https://x.test/a(b))';
+  const d = new Document('/tmp', 'docs/x.md', `# T\n\n${body}\n`);
+  const l = d.links();
+  assert.deepEqual(l.internal, ['../ui_new/src/app/(dashboard)/billy/', './plain.md', 'spaced path.md']);
+  assert.deepEqual(l.external, ['https://x.test/a(b)']);
+});
+
 test('links: broken internal links are detected, valid ones are not', () => {
   const d = new Document('/tmp', 'docs/a.md', '# A\n\n[ok](b.md) [bad](missing.md) [ext](https://x.test)\n');
   const broken = brokenLinks([d], '/tmp', new Set(['docs/a.md', 'docs/b.md']));

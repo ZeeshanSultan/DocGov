@@ -151,7 +151,10 @@ export function frontmatterFor({ type, id, title, cfg, domain = null, visibility
 }
 
 export function listTypes() {
-  return Object.entries(TYPES).map(([id, t]) => ({
+  // `unknown` is the fallback a document lands in when classification fails, not a class
+  // anyone creates — listing it made `docgov types` report one more class than the
+  // taxonomy documents, which is the drift this tool exists to catch.
+  return Object.entries(TYPES).filter(([id]) => id !== 'unknown').map(([id, t]) => ({
     type: id, label: t.label, authority: t.authority, lens: t.lens,
     soft: t.soft || '', hard: t.hard || '', sections: (t.sections || []).length,
     handwritten: exists(path.join(TEMPLATE_DIR, `${id}.md`)) ? 'yes' : '',

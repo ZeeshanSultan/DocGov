@@ -44,6 +44,10 @@ commit real files, and run the real binary as a subprocess.
 - **Every template against its own gate.** The test *every document class produces a document
   that satisfies its own gate* is what keeps every class honest — adding a class with mismatched
   sections fails immediately.
+- **That a plan says when it cannot run.** Two documents proposed for one destination, and
+  a destination that already exists — `review` must name both, and flag the actions, rather
+  than leaving `fix` to discover it at execution. Also that test fixtures and `testdata/`
+  are not governed as documentation, because moving a fixture breaks the test that reads it.
 - **Static-site link semantics.** That an image under `static/`, a section link without a
   trailing slash, and a page-relative `../sibling/` all resolve inside a content tree, while a
   target with nothing behind it is still reported. These are resolved against the rendered URL

@@ -44,6 +44,11 @@ commit real files, and run the real binary as a subprocess.
 - **Every template against its own gate.** The test *every document class produces a document
   that satisfies its own gate* is what keeps 59 classes honest — adding a class with mismatched
   sections fails immediately.
+- **Static-site link semantics.** That an image under `static/`, a section link without a
+  trailing slash, and a page-relative `../sibling/` all resolve inside a content tree, while a
+  target with nothing behind it is still reported. These are resolved against the rendered URL
+  rather than the file path, and getting that wrong made every image on a documentation site
+  look broken.
 - **Signals that must not over-match.** That a hyphenated dependency name in a licence
   table (`memory-pager`) does not read as an on-call runbook, while a real runbook still
   does. `\b` treats a hyphen as a word boundary, which is how a third-party notices file

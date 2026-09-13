@@ -404,6 +404,29 @@ test('links: a link to a directory, a dotfile or a source file is not broken', (
     'only the target that genuinely does not exist may be reported');
 });
 
+test('links: a static-site tree resolves assets, sections and page-relative links', () => {
+  // Measured on a Hugo documentation site: 110 reported broken links, 4 real. 93 were
+  // images under static/, 10 were page-relative, 3 omitted the trailing slash.
+  const dir = tmpRepo();
+  fs.mkdirSync(path.join(dir, 'site', 'content', 'en', 'integrations'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'site', 'content', 'en', 'usage'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'site', 'static', 'images'), { recursive: true });
+  wf(dir, 'site/config.toml', 'baseURL = "/"\n');
+  wf(dir, 'site/static/images/dashboard.png', 'x');
+  wf(dir, 'site/content/en/usage/permissions.md', '# P\n');
+  wf(dir, 'site/content/en/integrations/social-authentication.md', '# S\n');
+
+  const body = '# API\n\n[img](../../images/dashboard.png) '        // static/ at site root
+    + '[section](../../usage/permissions) '                            // no trailing slash
+    + '[sibling](../social-authentication/) '                          // page renders as a dir
+    + '[gone](../../usage/nothing-here)\n';
+  wf(dir, 'site/content/en/integrations/api.md', body);
+  const d = new Document(dir, 'site/content/en/integrations/api.md', body);
+  const broken = brokenLinks([d], dir, new Set(['site/content/en/integrations/api.md']));
+  assert.deepEqual(broken.map((b) => b.target), ['../../usage/nothing-here'],
+    'only the target with nothing behind it may be reported');
+});
+
 test('links: a target that climbs out of the repository is not an internal link', () => {
   // GitHub documents the private-vulnerability-reporting link as
   // `[report](../../security/advisories/new)` in a root SECURITY.md, and resolves it

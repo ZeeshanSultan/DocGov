@@ -7,6 +7,7 @@ import { brokenLinks, brokenAnchors } from './links.js';
 import { assess, readmeOverreach, missingIndexes } from './size.js';
 import { danglingReferences } from './registry.js';
 import { similarPairs } from './similarity.js';
+import { competing } from './competing.js';
 import { parse as fmParse } from './frontmatter.js';
 
 /**
@@ -46,6 +47,7 @@ export const CHECKS = {
   'readme-overreach':    { severity: 'low',      blurb: 'a README section has grown into its own document' },
   'missing-index':       { severity: 'low',      blurb: 'directory has several documents and no index' },
   'duplicate-candidate': { severity: 'low',      blurb: 'two documents are textually very similar' },
+  'competing-responsibility': { severity: 'medium', blurb: 'several documents cover one subject for one audience, with no stated relationship' },
   'new-root-document':   { severity: 'medium',   blurb: 'a new top-level Markdown file was added outside the taxonomy' },
   'expired-suppression': { severity: 'medium',   blurb: 'a suppression has expired and is no longer in effect' },
 };
@@ -181,6 +183,15 @@ export function run({ root, cfg, docs, registry, graph, inv, only = null }) {
   for (const m of missingIndexes(docs)) {
     add('missing-index', null, `${m.documents} documents and no index`,
       { path: m.dir, fix: `docgov create ${m.type} "Overview" --path ${m.suggest}` });
+  }
+
+  // Competing sources of truth, which is a different question from near-duplicate text.
+  // Reported per cluster rather than per pair: three setup guides are one problem, and three
+  // pairwise findings would be three-thirds of it.
+  for (const g of competing({ docs, limit: 10 })) {
+    add('competing-responsibility', null, `${g.why}: ${g.paths.join(', ')}`,
+      { path: g.paths[0], others: g.paths.slice(1), topic: g.topic, lens: g.lens,
+        fix: 'decide which one owns this, and make the others say so — link them, or merge them' });
   }
 
   for (const p of similarPairs(docs, { threshold: 0.55, limit: 15 })) {

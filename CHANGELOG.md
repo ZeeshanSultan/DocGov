@@ -43,6 +43,15 @@ with a migration note.
   merely share vocabulary it names the candidates and writes the document anyway, because
   whether "Setup" and "Getting started" are one responsibility is a judgement call.
   `--force` overrides a refusal.
+- **`docgov judge` records what a model concluded, as a different kind of object.** Software
+  decides what blocks and a model decides what is subjective; the risk was never that the two
+  were stored together but that they *rendered* the same. Judgements live in
+  `.docgov/judgements.json`, print in their own JUDGEMENT section, are a separate array in
+  `check --json` rather than entries in `findings`, and never change an exit code.
+  `deterministic: false`, `blocking: false` and `source: "model"` are set on write and
+  re-applied on read, so an agent cannot mark its own opinion as a rule even by editing the
+  file. `confidence` and `evidence` are mandatory — a verdict without them is refused, not
+  stored.
 - **`brief` compiles a pack instead of retrieving one.** It opens with a map — what governs
   this area, the invariants in force, the code claimed, what derives from what, what is
   already known to be stale, and where two documents play the same role — so an agent handed

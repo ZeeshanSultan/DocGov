@@ -106,6 +106,10 @@ commit real files, and run the real binary as a subprocess.
   staleness as unknown when no git history was handed in, and the test asserts the word.
   Collapsing the two is how a tool ends up claiming a clean result it never established, and
   it is invisible in any test that only checks the happy path.
+- **That a model cannot promote its own verdict.** A judgements file with `blocking: true`
+  and `deterministic: true` written into it is loaded, flattened, and must still leave the
+  exit code at 0. This is the one test that guards the separation the whole product rests on,
+  and the failure it catches is silent: everything still renders, just in the wrong column.
 - **Both sides of a refusal.** `create` refusing a competing document is only worth having if
   it refuses the right ones, so the tests assert the false-positive side as hard as the true
   one: a narrower name is reported and still written, an unrelated name is written silently,

@@ -37,6 +37,7 @@ import { staleness } from '../core/drift.js';
 import { EXIT, DocGovError, table, write, read, exists, toPosix, plural } from '../core/util.js';
 import * as schemamod from '../core/schema.js';
 import * as respmod from '../core/responsibility.js';
+import * as judge from '../core/judgements.js';
 
 const argv = process.argv.slice(2);
 
@@ -109,6 +110,7 @@ const COMMANDS = {
   types: cmdTypes,
   tools: cmdTools,
   ignore: cmdIgnore,
+  judge: cmdJudge,
   inspect: cmdInspect,
   hook: cmdHook,
   version: () => { say(packageVersion()); return EXIT.OK; },
@@ -535,18 +537,24 @@ function cmdCheck() {
   }
   const driftSplit = supp.apply(drift.findings, sup);
 
+  // Model judgements are loaded but never merged into `findings`, and never reach
+  // `exitCode`. A verdict a model reached is advisory by construction: software decides what
+  // blocks. Keeping them in a separate array is what makes that impossible to get wrong
+  // downstream, rather than merely unlikely.
+  const judgements = judge.load(c.root).judgements;
+
   const code = checkmod.exitCode({ findings: split.active, driftFindings: driftSplit.active, cfg: c.cfg });
   const stats = checkmod.summarize(split.active);
 
   if (JSONOUT) {
     emit(schemamod.stamp('findings', {
-      exitCode: code, stats, findings: split.active, suppressed: split.suppressed.length,
+      exitCode: code, stats, findings: split.active, judgements, suppressed: split.suppressed.length,
       expiredSuppressions: split.expired, drift: driftSplit.active, unusedSuppressions: split.unused,
       scanSkipped: c.inv?.scanSkipped || [] }));
     return code;
   }
 
-  if (!split.active.length && !driftSplit.active.length) {
+  if (!split.active.length && !driftSplit.active.length && !judgements.length) {
     say(`✓ ${plural(c.docs.length, 'document')} checked, no findings.`);
     reportIncompleteScan(c);
     if (split.suppressed.length) say(`  (${split.suppressed.length} suppressed)`);
@@ -575,6 +583,17 @@ function cmdCheck() {
       say(`           ${f.why}`);
       say(`           → ${f.action}`);
     }
+  }
+  if (judgements.length) {
+    say('');
+    say(`JUDGEMENT (${judgements.length}) — a model's reading, not a rule. Never blocks.`);
+    for (const j of judgements.slice(0, flags.all ? judgements.length : 12)) {
+      say(`  ${j.severity.padEnd(8)} ${j.check.padEnd(21)} ${j.path}`);
+      say(`           ${j.message}`);
+      say(`           ${j.confidence} confidence · ${j.agent} · ${j.recorded}`);
+      for (const e of j.evidence.slice(0, 3)) say(`           read: ${e}`);
+    }
+    if (!flags.all && judgements.length > 12) say(`  … ${judgements.length - 12} more (pass --all)`);
   }
   if (split.expired.length) {
     say('');
@@ -687,6 +706,42 @@ function cmdAffected() {
 }
 
 function yn(b) { return b ? 'yes' : 'no '; }
+
+/**
+ * Record what a model concluded. This is the only way a semantic finding enters DocGov, and
+ * it is deliberately a different door from the one deterministic findings come through.
+ */
+function cmdJudge() {
+  const c = ctx();
+  const agent = flags.agent ? String(flags.agent) : null;
+
+  if (flags.clear) {
+    const gone = judge.clear(c.root, { agent });
+    if (JSONOUT) return emit({ cleared: gone, agent }) ?? EXIT.OK;
+    say(`Cleared ${plural(gone, 'judgement')}${agent ? ` from ${agent}` : ''}.`);
+    return EXIT.OK;
+  }
+
+  // `--file -` reads stdin, which is how an agent pipes a verdict straight out of a lens.
+  const src = flags.file ? String(flags.file) : null;
+  if (!src) {
+    throw new DocGovError('usage: docgov judge --file <verdicts.json|-> [--agent NAME]\n'
+      + '       docgov judge --clear [--agent NAME]\n\n'
+      + 'Each verdict needs: check, path, message, confidence (low|medium|high or 0-1),\n'
+      + 'evidence (a non-empty list of what was read), agent.');
+  }
+  const raw = src === '-' ? fs.readFileSync(0, 'utf8') : read(path.resolve(c.root, src));
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch (e) { throw new DocGovError(`${src} is not valid JSON: ${e.message}`); }
+  const list = Array.isArray(parsed) ? parsed : (parsed.judgements || parsed.findings || [parsed]);
+
+  const res = judge.record(c.root, list, { agent });
+  if (JSONOUT) return emit({ ...res, file: '.docgov/judgements.json' }) ?? EXIT.OK;
+  say(`Recorded ${plural(res.recorded, 'judgement')}${res.replaced ? `, replacing ${res.replaced}` : ''}.`);
+  say('They are advisory by construction: `docgov check` shows them in their own section and');
+  say('they never change its exit code.');
+  return EXIT.OK;
+}
 
 function cmdChecklist() {
   const c = ctx();
@@ -1279,6 +1334,7 @@ When something is off
   tag [--apply] [--path P]                   add missing frontmatter
   rules [--for paths]                        the rules your docs declare, and the code they govern
   ignore <ID> --reason "..." [--expires D]   record a deliberate exception
+  judge --file <f.json> [--agent N]          record what a model concluded (never blocks)
   publish [--target DIR]                     what is safe to publish, and what would leak
 
 Plumbing

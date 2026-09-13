@@ -27,6 +27,7 @@ import { scan as scanLeaks } from '../core/publish.js';
 import { find } from '../core/find.js';
 import { pack, compile, render } from '../core/context.js';
 import { whoOwns } from '../core/responsibility.js';
+import * as judgemod from '../core/judgements.js';
 import { EXIT } from '../core/util.js';
 
 const BIN = fileURLToPath(new URL('../bin/docgov', import.meta.url));
@@ -1532,4 +1533,97 @@ test('brief: a document dropped for budget is recorded as such, not as absent', 
   const c = compile({ cfg, docs, graph, topic: 'licensing', budget: 400 });
   render(c);
   assert.ok(c.decisions.some((d) => d.state === 'headings-only' && /budget of 400/.test(d.why)));
+});
+
+// --- model judgements are a different kind of object --------------------------------
+
+test('judgements: confidence, evidence and an agent are required', () => {
+  assert.deepEqual(judgemod.problems({ check: 'c', path: 'a.md', message: 'm', confidence: 'high', evidence: ['a.md:1'], agent: 'q' }), []);
+  const missing = judgemod.problems({ check: 'c', path: 'a.md', message: 'm' });
+  assert.equal(missing.length, 3);
+  // Evidence must exist, not merely be declared: an empty list is a verdict with no reading
+  // behind it, which is the thing the format exists to make impossible.
+  assert.ok(judgemod.problems({ check: 'c', path: 'a.md', message: 'm', confidence: 'high', evidence: [], agent: 'q' }).length);
+  // A number is accepted and bucketed; agents produce both forms.
+  assert.equal(judgemod.normalize({ check: 'c', path: 'a.md', message: 'm', confidence: 0.82, evidence: ['x'], agent: 'q' }).confidence, 'high');
+  assert.equal(judgemod.normalize({ check: 'c', path: 'a.md', message: 'm', confidence: 0.6, evidence: ['x'], agent: 'q' }).confidence, 'medium');
+});
+
+test('judgements: a model cannot mark its own verdict as a rule', () => {
+  const j = judgemod.normalize({ check: 'c', path: 'a.md', message: 'm', confidence: 'high',
+    evidence: ['a.md:1'], agent: 'q', blocking: true, deterministic: true, source: 'deterministic' });
+  assert.equal(j.blocking, false);
+  assert.equal(j.deterministic, false);
+  assert.equal(j.source, 'model');
+});
+
+test('check reports judgements in their own section and never lets them change the exit code', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '---\ndocgov:\n  id: readme\n  type: user.readme\n---\n# Thing\n\nA thing.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+
+  // Written by hand with the flags an agent would need to smuggle to be taken for a rule.
+  wf(dir, '.docgov/judgements.json', JSON.stringify({ version: 1, judgements: [{
+    check: 'contradiction', path: 'README.md', severity: 'critical', message: 'says 7 days, spec says 30',
+    confidence: 'high', evidence: ['README.md:3'], agent: 'quality-reviewer', recorded: '2026-01-01',
+    blocking: true, deterministic: true, source: 'deterministic',
+  }] }));
+
+  const human = cli(dir, ['check']);
+  assert.equal(human.code, EXIT.OK, 'a judgement must never fail a build');
+  assert.match(human.out, /JUDGEMENT \(1\)/);
+  assert.match(human.out, /high confidence · quality-reviewer/);
+
+  const j = JSON.parse(cli(dir, ['check', '--json']).out);
+  assert.equal(j.exitCode, EXIT.OK);
+  assert.equal(j.judgements.length, 1);
+  assert.equal(j.judgements[0].deterministic, false);
+  assert.equal(j.judgements[0].blocking, false);
+  // The thing that matters most: it is not in `findings`, so nothing downstream that reads
+  // findings can act on it as a rule.
+  assert.ok(!j.findings.some((f) => f.check === 'contradiction'));
+});
+
+test('judge records a verdict, replaces its own previous one, and refuses an unfalsifiable one', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '---\ndocgov:\n  id: readme\n  type: user.readme\n---\n# Thing\n\nA thing.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+
+  const verdict = (message) => JSON.stringify([{ check: 'contradiction', path: 'README.md',
+    message, confidence: 'high', evidence: ['README.md:3'], agent: 'quality-reviewer' }]);
+  wf(dir, 'v1.json', verdict('first reading'));
+  assert.equal(cli(dir, ['judge', '--file', 'v1.json']).code, EXIT.OK);
+
+  // A re-run of the same lens on the same document corrects itself rather than accumulating.
+  wf(dir, 'v2.json', verdict('second reading'));
+  cli(dir, ['judge', '--file', 'v2.json']);
+  const stored = JSON.parse(fs.readFileSync(path.join(dir, '.docgov/judgements.json'), 'utf8'));
+  assert.equal(stored.judgements.length, 1);
+  assert.equal(stored.judgements[0].message, 'second reading');
+  assert.equal(stored.version, 1);
+
+  wf(dir, 'bad.json', JSON.stringify([{ check: 'contradiction', path: 'README.md', message: 'no evidence' }]));
+  const bad = cli(dir, ['judge', '--file', 'bad.json']);
+  assert.equal(bad.code, EXIT.CONFIG);
+  assert.match(bad.out, /evidence` is required/);
+
+  assert.equal(cli(dir, ['judge', '--clear']).code, EXIT.OK);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, '.docgov/judgements.json'), 'utf8')).judgements.length, 0);
+});
+
+test('a judgement cannot reach the write gate a hook enforces', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '---\ndocgov:\n  id: readme\n  type: user.readme\n---\n# Thing\n\nA thing.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  wf(dir, '.docgov/judgements.json', JSON.stringify({ version: 1, judgements: [{
+    check: 'generated-edit', path: 'README.md', severity: 'critical', message: 'model says do not edit',
+    confidence: 'high', evidence: ['README.md:1'], agent: 'quality-reviewer', blocking: true,
+  }] }));
+  const input = JSON.stringify({ cwd: dir, tool_name: 'Edit', tool_input: { file_path: path.join(dir, 'README.md') } });
+  const r = spawnSync(process.execPath, [BIN, 'hook', 'pre-tool'], { input, encoding: 'utf8', cwd: dir });
+  assert.equal(r.status, EXIT.OK);
+  assert.ok(!/deny/i.test(r.stdout), 'a model verdict must not become a write denial');
 });

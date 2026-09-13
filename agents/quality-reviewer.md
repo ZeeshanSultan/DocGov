@@ -57,3 +57,25 @@ assessment, state the gap, and recommend. Do not present your opinion as a gate.
 Findings ordered by what you would fix first. Each: file, section or line, what is wrong,
 the concrete edit. No praise padding, no summary of what went fine, no scores without
 reasons. If the document is good, say it is good in one line and stop.
+
+## Record what you concluded
+
+Write the findings you would stand behind as JSON and record them:
+
+```bash
+docgov judge --file - --agent quality-reviewer <<'JSON'
+[{"check": "audience-mismatch",
+  "path": "docs/getting-started.md",
+  "severity": "medium",
+  "message": "Opens with the event-sourcing model; a first-time reader cannot start anything",
+  "confidence": "high",
+  "evidence": ["docs/getting-started.md:1-60", "lenses/user.md"]}]
+JSON
+```
+
+`confidence` is `low`, `medium` or `high` (a number from 0 to 1 also works) and `evidence`
+lists what you actually read to reach the verdict — both are required, and a verdict without
+them is rejected rather than stored. DocGov records these as model-derived: `docgov check`
+prints them in their own JUDGEMENT section, they carry `deterministic: false` in `--json`, and
+they can never change an exit code. That separation is the product; do not try to present a
+judgement as a rule.

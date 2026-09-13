@@ -26,6 +26,8 @@ export const SCHEMA = {
   plan: 1,
   checklist: 1,
   tools: 1,
+  judgements: 1,
+
   // Machine-readable output. Nothing writes these to disk, but a skill, a hook or a CI job
   // parses them, which makes their shape a contract exactly as much as a file's is. The
   // reader is someone else's code, so all DocGov can do for them is say which shape this is.
@@ -39,7 +41,8 @@ export const SCHEMA = {
 const LABELS = {
   config: 'configuration', registry: 'document registry', graph: 'documentation graph',
   suppressions: 'suppressions file', plan: 'fix plan', checklist: 'change checklist',
-  tools: 'capability registry', findings: 'findings report', brief: 'context pack',
+  tools: 'capability registry', judgements: 'model judgements',
+  findings: 'findings report', brief: 'context pack',
   health: 'health report', rules: 'rule set',
 };
 

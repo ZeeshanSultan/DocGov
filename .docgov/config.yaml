@@ -17,8 +17,6 @@ documentation:
 governance:
   canonical_changes_require_review: false
   prevent_duplicate_domains: true
-  # PRD.md and FEASIBILITY.md are this repository's own specification; they belong at the
-  # root alongside README.md, the same way a spec sits beside the thing it specifies.
   allowed_root_docs:
     - README.md
     - CONTRIBUTING.md
@@ -26,8 +24,6 @@ governance:
     - CHANGELOG.md
     - CLAUDE.md
     - LICENSE.md
-    - PRD.md
-    - FEASIBILITY.md
 drift:
   enabled: true
 generated:

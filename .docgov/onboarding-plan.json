@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated": "2026-09-13T02:42:36.245Z",
+  "generated": "2026-09-13T02:49:45.642Z",
   "layout": "compact",
   "mode": "solo",
   "git": {
@@ -26,8 +26,8 @@
   "classifications": [
     {
       "path": "FEASIBILITY.md",
-      "current": "security.threat-model",
-      "proposed": "security.threat-model",
+      "current": "architecture.assessment",
+      "proposed": "architecture.assessment",
       "confidence": 100,
       "needsReview": false,
       "signals": [
@@ -35,13 +35,13 @@
       ],
       "candidates": [
         {
-          "type": "security.threat-model",
+          "type": "architecture.assessment",
           "score": 100
         }
       ],
-      "owner": null,
-      "lastChanged": null,
-      "lines": 231,
+      "owner": "docgov",
+      "lastChanged": "2026-09-13",
+      "lines": 232,
       "registered": true
     },
     {
@@ -59,9 +59,9 @@
           "score": 100
         }
       ],
-      "owner": null,
-      "lastChanged": null,
-      "lines": 1810,
+      "owner": "docgov",
+      "lastChanged": "2026-09-13",
+      "lines": 1809,
       "registered": true
     },
     {
@@ -79,9 +79,9 @@
           "score": 100
         }
       ],
-      "owner": null,
-      "lastChanged": null,
-      "lines": 178,
+      "owner": "zeeshan",
+      "lastChanged": "2026-09-13",
+      "lines": 184,
       "registered": true
     },
     {
@@ -99,8 +99,8 @@
           "score": 100
         }
       ],
-      "owner": null,
-      "lastChanged": null,
+      "owner": "zeeshan",
+      "lastChanged": "2026-09-13",
       "lines": 57,
       "registered": true
     }
@@ -109,9 +109,9 @@
     {
       "kind": "MOVE",
       "path": "FEASIBILITY.md",
-      "to": "docs/security/FEASIBILITY.md",
-      "type": "security.threat-model",
-      "reason": "a Threat Model belongs in docs/security/",
+      "to": "docs/FEASIBILITY.md",
+      "type": "architecture.assessment",
+      "reason": "a Technical Assessment belongs in docs/",
       "risk": "low",
       "requiresJudgement": false
     },

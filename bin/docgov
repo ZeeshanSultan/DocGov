@@ -237,7 +237,7 @@ function cmdMigrate() {
   const useGit = flags.no_git !== true;
 
   let branch = null;
-  if (!dryRun && useGit && git.isRepo(c.root) && flags.branch !== false) {
+  if (!dryRun && useGit && git.isRepo(c.root) && flags.no_branch !== true) {
     branch = typeof flags.branch === 'string' ? flags.branch : `docgov/migration-${new Date().toISOString().slice(0, 10)}`;
     if (git.revParse(c.root, branch)) say(`Branch ${branch} already exists — committing onto it.`);
     else git.createBranch(c.root, branch);
@@ -1119,7 +1119,7 @@ function usage() {
 Setup
   init [--mode M] [--layout full|compact]   establish governance in this repository
   onboard                                   inventory, classify, and write a migration plan
-  migrate [--dry-run] [--include split,..]  execute the plan transactionally on a branch
+  migrate [--dry-run] [--no-branch] [--include split,..]  execute the plan on a branch
 
 Authoring
   types [filter]                            list document classes

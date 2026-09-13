@@ -1,6 +1,6 @@
 # DocGov onboarding plan
 
-Generated 2026-09-13 02:42:36 · layout `compact` · mode `solo`
+Generated 2026-09-13 02:49:45 · layout `compact` · mode `solo`
 
 **Nothing has changed yet.** This plan is a proposal. Edit it freely — delete any action you
 disagree with — then run `docgov migrate` to execute exactly what remains.
@@ -20,6 +20,8 @@ disagree with — then run `docgov migrate` to execute exactly what remains.
 ```
 ./
   README.md
+docs/
+  FEASIBILITY.md   ← FEASIBILITY.md
 docs/architecture.md/
   (to create)   (new)
 docs/development.md/
@@ -30,8 +32,6 @@ docs/operations/
   (to create)   (new)
 docs/product/
   PRD.md   ← PRD.md
-docs/security/
-  FEASIBILITY.md   ← FEASIBILITY.md
 examples/policy-packs/
   README.md
 ```
@@ -40,8 +40,8 @@ examples/policy-packs/
 
 Relocated to the canonical position for their class. Links are repaired automatically.
 
-- `FEASIBILITY.md` → `docs/security/FEASIBILITY.md`  
-  a Threat Model belongs in docs/security/
+- `FEASIBILITY.md` → `docs/FEASIBILITY.md`  
+  a Technical Assessment belongs in docs/
 - `PRD.md` → `docs/product/PRD.md`  
   a PRD belongs in docs/product/
 

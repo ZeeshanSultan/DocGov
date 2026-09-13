@@ -247,6 +247,7 @@ export function plan({ root, cfg, docs, inv, graph, registry }) {
     fingerprint: fingerprintOf(root, docs, gitAvailable),
     summary, classifications, actions, duplicates, contradictionCandidates, gaps, brokenLinks: broken,
     collisions,
+    scopes: (inv.scopes || []).map((s) => ({ name: s.name, prefix: s.prefix, declared: s.declared })),
     stack: inv.stack.map((s) => ({ id: s.id, evidence: s.evidence[0], count: s.count })),
     contracts: inv.contracts,
     agentInstructions: inv.agentInstructions,
@@ -360,6 +361,10 @@ export function render(planData, cfg) {
   L.push(`- ${plural(s.unclassified, 'document')} could not be classified, ${s.lowConfidence} classified with low confidence`);
   L.push(`- ${plural(s.brokenLinks, 'broken internal link')}, ${plural(s.duplicateCandidates, 'suspected duplicate pair')}`);
   if (planData.stack.length) L.push(`- stack detected: ${planData.stack.map((x) => x.id).join(', ')}`);
+  if (planData.scopes?.length) {
+    L.push(`- ${plural(planData.scopes.length, 'authority scope')}: ${planData.scopes.map((x) => x.prefix).join(', ')}`);
+    L.push('  Documents inside these stay inside them, and each has its own README.');
+  }
   if (planData.agentInstructions.length) L.push(`- existing agent instructions: ${planData.agentInstructions.join(', ')}`);
   L.push('');
 

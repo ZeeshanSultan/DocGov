@@ -337,6 +337,46 @@ docgov ignore --remove DRIFT-20828
 **Writes:** `.docgov/suppressions.yaml`. Suppressed findings stay visible in `ignore list` and
 in every report. Expired ones get their own section in `check`. Nothing disappears quietly.
 
+### Monorepos: who governs what
+
+A monorepo has documents that govern everything — system architecture, the security policy,
+contributing — and documents that govern one package. Authority used to be repository-wide,
+which is wrong in both directions: a package's architecture document is canonical *for that
+package* and says nothing about any other, and every package has a README that a
+repository-wide "there is one README" rule demotes to a directory index.
+
+DocGov reads the boundaries the repository's own build tooling already draws: a directory with
+a `package.json`, `go.mod`, `Cargo.toml`, `pyproject.toml`, `pom.xml` or similar is a scope.
+`node_modules`, `vendor`, `testdata` and fixture trees never are, and neither is the repository
+root — that is what everything else is nested inside. Name more, or opt out, in config:
+
+```yaml
+scopes:
+  detect: true                      # the default
+  packages:
+    auth: { path: packages/auth }
+  exclude: ["examples/**"]
+```
+
+Three things change inside a scope:
+
+- **Destinations.** A package's document lands in that package's documentation tree. On a real
+  1,011-document monorepo, 22 package documents were being proposed for the root tree —
+  `chainsaw-landing/AUDIT_REPORT.md` to `docs/06-operations/runbooks/chainsaw-landing/`. All 19
+  now stay in their package. That is invisible until the package is extracted and its
+  documentation has been gone for a year.
+- **Singletons.** One README per scope. `packages/auth/README.md` is the README of
+  `packages/auth`, not a mis-filed copy of the repository's.
+- **Comparisons.** Two packages each having a setup guide is not a duplicate.
+
+`docgov doctor` and the fix plan both list the scopes they found.
+
+**What it does not do:** repository-wide documents stay repository-wide, and the overall size
+of a plan barely moves. On that monorepo the proposed moves went from 345 to 343 — the other
+documents are in `docs/`, `internal/` and `qa/`, which are not packages, and their moves were
+never cross-scope noise. Scoping fixes where package documents go; it does not make a large
+repository's documentation smaller.
+
 ### Competing sources of truth
 
 `check` reports a `competing-responsibility` finding when several documents own one subject for

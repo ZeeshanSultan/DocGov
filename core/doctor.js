@@ -286,6 +286,15 @@ function repository(root) {
     out.push(ok('review', `audience: ${audience} · leak detection: ${leak ? 'on' : 'off'}`));
   }
 
+  // Which parts of the repository govern themselves. Worth stating because it changes where
+  // documents are proposed to move to, and a wrong scope is otherwise silent.
+  try {
+    const i = inv.inventory(root, cfg);
+    if (i.scopes?.length) {
+      out.push(ok('scopes', `${i.scopes.length} authority scope(s): ${i.scopes.slice(0, 6).map((s) => s.prefix).join(', ')}`));
+    }
+  } catch { /* the inventory failure below is the one worth reporting */ }
+
   // Duplicate ids make the graph ambiguous, which makes every lookup through it a coin toss.
   try {
     const i = inv.inventory(root, cfg);

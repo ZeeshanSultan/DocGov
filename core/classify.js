@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { TYPES, customPathSignals } from './taxonomy.js';
+import { scopedDestination } from './scopes.js';
 import { matchGlob } from './util.js';
 
 /**
@@ -250,10 +251,14 @@ export function classify(doc) {
     if (re.test(body)) bump(type, w, `content matches ${re.source.slice(0, 34)}`);
   }
 
-  // Root-level singletons are a strong tie-break: only one README can exist.
-  if (!rel.includes('/')) {
+  // Singletons are a strong tie-break: only one README can exist — per scope. At the
+  // repository root that is the repository's; inside a package it is the package's, because
+  // a package having its own README is the normal case in a monorepo and not a mistake.
+  const scopePrefix = doc.scope ? `${doc.scope}/` : '';
+  const withinScope = scopePrefix && rel.startsWith(scopePrefix) ? rel.slice(scopePrefix.length) : rel;
+  if (!withinScope.includes('/')) {
     for (const [id, t] of Object.entries(TYPES)) {
-      if (t.singleton && (t.compact || t.full) === rel) bump(id, 60, 'canonical singleton path', 'structural');
+      if (t.singleton && (t.compact || t.full) === withinScope) bump(id, 60, 'canonical singleton path', 'structural');
     }
   }
 
@@ -268,13 +273,16 @@ export function classify(doc) {
   for (const [type, t] of Object.entries(TYPES)) {
     if (!t.singleton || !scores.has(type)) continue;
     const canonical = t.compact || t.full;
-    if (rel !== canonical) {
+    // Canonical *for its scope*. `packages/auth/README.md` is the README of packages/auth,
+    // and demoting it as "not the README" is how a monorepo's per-package documentation gets
+    // read as disorder.
+    if (withinScope !== canonical) {
       scores.set(type, Math.round(scores.get(type) * SINGLETON_OFF_CANONICAL));
       // The structural evidence is demoted with it: the filename still says CODE_OF_CONDUCT,
       // but sitting somewhere else is exactly what makes the classification doubtful.
       if (structural.has(type)) structural.set(type, Math.round(structural.get(type) * SINGLETON_OFF_CANONICAL));
       const why = signals.get(type) || [];
-      why.push(`not at the canonical path ${canonical}`);
+      why.push(`not at the canonical path ${scopePrefix}${canonical}`);
       signals.set(type, why);
     }
   }
@@ -325,7 +333,11 @@ export function destinationFor(cfg, type, currentPath, doc = null) {
   // docs/11-external/security.md, where GitHub stops finding it.
   if (t.anchored) return currentPath;
   const loc = cfg.project.layout === 'full' ? t.full : (t.compact || t.full);
-  if (!loc.endsWith('/')) return loc;                       // singleton or fixed file
   const base = path.basename(currentPath);
-  return loc + base;
+  const dest = loc.endsWith('/') ? loc + base : loc;        // a fixed path is a fixed path
+  // A package's document belongs in that package's documentation tree. Sending it to the
+  // repository's is not a tidy-up; it is a reorganisation nobody asked for, and it is how one
+  // 1,011-document monorepo ended up with 345 proposed moves. It is also invisible until the
+  // package is extracted and its documentation has been gone for a year.
+  return doc?.scope ? scopedDestination([{ prefix: doc.scope }], currentPath, dest) : dest;
 }

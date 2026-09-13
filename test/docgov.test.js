@@ -2133,3 +2133,76 @@ test('findings say which revision produced them', () => {
   assert.equal(j.revision.documents, snapshot(dir).docs.length);
   assert.equal(typeof j.revision.clean, 'boolean');
 });
+
+// --- a monorepo has more than one authority -----------------------------------------
+
+function monorepo() {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# The system\n\nEverything.\n');
+  wf(dir, 'package.json', '{"name":"root","workspaces":["packages/*"]}');
+  wf(dir, 'packages/auth/package.json', '{"name":"auth"}');
+  wf(dir, 'packages/auth/README.md', '# Auth\n\nThe authentication package.\n');
+  wf(dir, 'packages/auth/RUNBOOK.md', '# Auth failover\n\n## Trigger\n\nAlert fires.\n\n## Procedure\n\n1. Fail over.\n');
+  wf(dir, 'packages/billing/package.json', '{"name":"billing"}');
+  wf(dir, 'packages/billing/README.md', '# Billing\n\nThe billing package.\n');
+  wf(dir, 'node_modules/thing/package.json', '{"name":"thing"}');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  return dir;
+}
+
+test('scopes: a package manifest declares a scope, and vendored trees never do', () => {
+  const dir = monorepo();
+  const found = snapshot(dir).inv.scopes.map((s) => s.prefix).sort();
+  assert.deepEqual(found, ['packages/auth', 'packages/billing']);
+  // The repository root is not a scope: it is what everything else is nested inside, and
+  // calling it one makes the distinction meaningless.
+  assert.ok(!found.includes(''));
+});
+
+test('scopes: a package document stays in its package', () => {
+  const dir = monorepo();
+  cli(dir, ['review']);
+  const plan = JSON.parse(fs.readFileSync(path.join(dir, '.docgov/fix-plan.json'), 'utf8'));
+  const moved = plan.actions.filter((a) => a.kind === 'MOVE' && a.path.startsWith('packages/'));
+  assert.ok(moved.length, 'the fixture must produce at least one package move to be worth asserting on');
+  for (const a of moved) {
+    const pkg = a.path.split('/').slice(0, 2).join('/');
+    assert.ok(a.to.startsWith(`${pkg}/`), `${a.path} was sent to ${a.to}, outside its own package`);
+  }
+  assert.ok(plan.scopes.some((s) => s.prefix === 'packages/auth'));
+});
+
+test('scopes: every package has its own README, and a nested index is still an index', () => {
+  const dir = monorepo();
+  const byPath = new Map(snapshot(dir).docs.map((d) => [d.path, d]));
+  for (const p of ['README.md', 'packages/auth/README.md', 'packages/billing/README.md']) {
+    const c = classify(byPath.get(p));
+    assert.equal(c.type, 'user.readme', `${p} is the README of its scope`);
+    assert.equal(c.needsReview, false, `${p} must not be demoted for existing`);
+  }
+  // Scoping must not turn every nested README into a project README.
+  wf(dir, 'docs/guides/README.md', '# Guides\n\n- [One](one.md)\n');
+  commit(dir);
+  const idx = snapshot(dir).docs.find((d) => d.path === 'docs/guides/README.md');
+  assert.equal(classify(idx).type, 'docs.index');
+});
+
+test('scopes: two packages owning the same subject are not competing', () => {
+  const dir = monorepo();
+  const setup = 'Clone the repository, run npm install, copy the env file and start the dev server.';
+  const guide = (id, title) => `---\ndocgov:\n  id: ${id}\n  type: user.guide\n---\n# ${title}\n\n`
+    + `## Goal\n\n${setup}\n\n## Steps\n\n1. Clone\n\n## Verification\n\nIt runs.\n\n## Related\n\nNone.\n`;
+  wf(dir, 'packages/auth/docs/setup.md', guide('auth-setup', 'Auth setup'));
+  wf(dir, 'packages/billing/docs/setup.md', guide('billing-setup', 'Billing setup'));
+  commit(dir);
+  assert.deepEqual(competingmod.competing({ docs: snapshot(dir).docs }), [],
+    'each package is authoritative for its own package');
+
+  // Within one package it is still a competition.
+  wf(dir, 'packages/auth/docs/local-setup.md', guide('auth-setup-2', 'Auth local setup'));
+  commit(dir);
+  const within = competingmod.competing({ docs: snapshot(dir).docs });
+  assert.equal(within.length, 1);
+  assert.ok(within[0].paths.every((p) => p.startsWith('packages/auth/')));
+});

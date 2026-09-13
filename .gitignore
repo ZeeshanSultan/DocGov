@@ -1,8 +1,12 @@
 node_modules/
-.docgov/cache/
-.docgov/reports/
 *.log
 .DS_Store
-.kangentic/
-.claude/settings.local.json
-kangentic.local.json
+
+# DocGov transient artifacts. The registry, graph and config are committed because
+# they are the governed state; these are working files for one operation and go stale
+# the moment it completes.
+.docgov/cache/
+.docgov/reports/
+.docgov/onboarding-plan.md
+.docgov/onboarding-plan.json
+.docgov/manifest.yaml

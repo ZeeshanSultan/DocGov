@@ -1,0 +1,15 @@
+{
+  "theme": "dark",
+  "agent": {
+    "permissionMode": "bypassPermissions"
+  },
+  "git": {
+    "worktreesEnabled": true,
+    "autoCleanup": true,
+    "defaultBaseBranch": "main",
+    "copyFiles": [],
+    "initScript": null,
+    "linkNodeModules": true,
+    "prRefreshIntervalMinutes": 5
+  }
+}

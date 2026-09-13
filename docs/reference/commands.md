@@ -338,7 +338,33 @@ until the token budget runs out, then headings only.
 ```bash
 docgov brief billing
 docgov brief auth --budget 4000
+docgov brief billing --explain    # …and how every document was decided
 ```
+
+It opens with a map, because an agent handed twelve thousand characters needs to know what it
+is looking at in the first six lines:
+
+```
+AUTHORITATIVE   docs/architecture/billing.md, contracts/billing.yaml, docs/adr/018-ledger.md
+INVARIANTS      INV-BILL-001, INV-BILL-004
+IMPLEMENTATION  src/billing/**
+DERIVED         README.md summarizes docs/architecture/billing.md
+KNOWN STALE     docs/architecture/billing.md (forward, high)
+CONFLICTS       none
+```
+
+Every row is countable and every row is sourced from documents also in the pack. `KNOWN STALE`
+reads `unknown — no git history available` outside a git repository, because that is not the
+same as `none` and printing the second would be a claim DocGov cannot make. `CONFLICTS` reports
+only two documents of a constitution or canonical class naming the same domain — the case where
+nothing ranks one over the other. Most classes are plural by design, and a domain with six ADRs
+is not in conflict with itself.
+
+`--explain` appends what happened to every document considered and why: `selected`,
+`headings-only` (chosen, but the budget ran out before its body), or `rejected` with the
+reason — no match, superseded, or ranked below the cut. A pack that comes back too thin or too
+large is a question with an answer rather than a guess. `--json` returns the same trace as
+`decisions`, alongside the map and the pack text.
 
 **Always prints to stdout**, with or without `--json`. That's deliberate: this is what the
 `/docgov:brief` skill injects into an agent's context.

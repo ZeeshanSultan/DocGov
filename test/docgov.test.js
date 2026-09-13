@@ -25,7 +25,7 @@ import * as impactmod from '../core/impact.js';
 import * as supp from '../core/suppressions.js';
 import { scan as scanLeaks } from '../core/publish.js';
 import { find } from '../core/find.js';
-import { pack } from '../core/context.js';
+import { pack, compile, render } from '../core/context.js';
 import { whoOwns } from '../core/responsibility.js';
 import { EXIT } from '../core/util.js';
 
@@ -1415,4 +1415,73 @@ test('create --check answers for an occupied path instead of failing', () => {
   const r = cli(dir, ['create', 'user.guide', 'Backups', '--check', '--json']);
   assert.equal(r.code, EXIT.REVIEW);
   assert.equal(JSON.parse(r.out).owner.path, 'docs/user/backups.md');
+});
+
+// --- brief as a deterministic context compiler --------------------------------------
+
+function packFixture() {
+  const docs = [
+    new Document('/tmp', 'docs/licensing.md', '---\ndocgov:\n  id: lic\n  type: architecture.domain\n  domain: licensing\n  documents:\n    - src/licensing/**\n---\n# Licensing\n\n- INV-LIC-001 One org per license.\n'),
+    new Document('/tmp', 'README.md', '---\ndocgov:\n  id: readme\n  type: user.readme\n  domain: licensing\n  relationships:\n    summarizes:\n      - lic\n---\n# Readme\n\nLicensing in brief.\n'),
+    new Document('/tmp', 'docs/old.md', '---\ndocgov:\n  id: old\n  type: architecture.domain\n  domain: licensing\n  status: superseded\n---\n# Old licensing\n\nLicensing, as it was.\n'),
+  ];
+  const cfg = cfgmod.defaults();
+  return { docs, cfg, graph: graphmod.build(docs, reg.build(docs).registry, cfg) };
+}
+
+test('brief: the map names what governs, what is claimed, and what derives from what', () => {
+  const { docs, cfg, graph } = packFixture();
+  const c = compile({ cfg, docs, graph, topic: 'licensing' });
+  assert.deepEqual(c.map.authoritative, ['docs/licensing.md']);
+  assert.deepEqual(c.map.invariants, ['INV-LIC-001']);
+  assert.deepEqual(c.map.implementation, ['src/licensing/**']);
+  assert.deepEqual(c.map.derived, [{ path: 'README.md', rel: 'summarizes', source: 'docs/licensing.md' }]);
+  // No git history was handed in, so staleness is unknown — which is not the same as none,
+  // and the pack must not print the second when it means the first.
+  assert.equal(c.map.stale, null);
+  assert.match(render(c), /KNOWN STALE\s+unknown/);
+});
+
+test('brief: staleness is reported when drift findings are handed in', () => {
+  const { docs, cfg, graph } = packFixture();
+  const drift = { usable: true, findings: [
+    { document: 'docs/licensing.md', kind: 'forward', severity: 'high', why: 'code moved' },
+    { document: 'docs/not-in-pack.md', kind: 'forward', severity: 'high', why: 'irrelevant' },
+  ] };
+  const c = compile({ cfg, docs, graph, topic: 'licensing', drift });
+  assert.deepEqual(c.map.stale.map((x) => x.path), ['docs/licensing.md']);
+});
+
+test('brief: only authoritative classes sharing a domain count as a conflict', () => {
+  const { cfg } = packFixture();
+  const two = (id, type) => new Document('/tmp', `docs/${id}.md`,
+    `---\ndocgov:\n  id: ${id}\n  type: ${type}\n  domain: licensing\n---\n# ${id}\n\nLicensing.\n`);
+  // Two canonical domain specs for one domain: nothing ranks one over the other.
+  let docs = [two('a', 'architecture.domain'), two('b', 'architecture.domain')];
+  let c = compile({ cfg, docs, graph: graphmod.build(docs, reg.build(docs).registry, cfg), topic: 'licensing' });
+  assert.equal(c.map.conflicts.length, 1);
+  assert.deepEqual(c.map.conflicts[0].paths, ['docs/a.md', 'docs/b.md']);
+
+  // Two ADRs for one domain: plural by design, and reporting them would be noise.
+  docs = [two('a', 'architecture.adr'), two('b', 'architecture.adr')];
+  c = compile({ cfg, docs, graph: graphmod.build(docs, reg.build(docs).registry, cfg), topic: 'licensing' });
+  assert.deepEqual(c.map.conflicts, []);
+});
+
+test('brief: every document considered is recorded with what happened to it', () => {
+  const { docs, cfg, graph } = packFixture();
+  const c = compile({ cfg, docs, graph, topic: 'licensing' });
+  const by = new Map(c.decisions.map((d) => [d.path, d]));
+  assert.equal(by.get('docs/licensing.md').state, 'selected');
+  assert.equal(by.get('docs/old.md').state, 'rejected');
+  assert.match(by.get('docs/old.md').why, /superseded/);
+  // A pack that came back thin has to be explainable: every document is accounted for.
+  assert.equal(c.decisions.length, docs.length);
+});
+
+test('brief: a document dropped for budget is recorded as such, not as absent', () => {
+  const { docs, cfg, graph } = packFixture();
+  const c = compile({ cfg, docs, graph, topic: 'licensing', budget: 400 });
+  render(c);
+  assert.ok(c.decisions.some((d) => d.state === 'headings-only' && /budget of 400/.test(d.why)));
 });

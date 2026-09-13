@@ -22,6 +22,16 @@ with a migration note.
   merely share vocabulary it names the candidates and writes the document anyway, because
   whether "Setup" and "Getting started" are one responsibility is a judgement call.
   `--force` overrides a refusal.
+- **`brief` compiles a pack instead of retrieving one.** It opens with a map — what governs
+  this area, the invariants in force, the code claimed, what derives from what, what is
+  already known to be stale, and where two documents play the same role — so an agent handed
+  twelve thousand characters knows what it is looking at in six lines. Every row is countable
+  and points at a document in the pack. `KNOWN STALE` reads `unknown` outside a git
+  repository, which is not the same as `none`.
+- **`brief --explain`** says what happened to every document it considered: selected,
+  headings-only because the budget ran out before its body, or rejected with the reason. The
+  same trace is in `--json` as `decisions`. A pack that comes back too thin or too wide used
+  to be a guess.
 - **`create --check`** answers the ownership question and writes nothing — what an agent
   should run before it decides. Exits `0` for `create-new` and `2` otherwise, so a script can
   branch on the exit code; `--json` adds the owner, the candidates, the required sections and

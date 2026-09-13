@@ -97,6 +97,10 @@ commit real files, and run the real binary as a subprocess.
   every `--json` payload over 8 KB arrived truncated mid-string.
 - **Parsers at their edges.** YAML round-trip identity, refusal of unsupported constructs,
   headings inside code fences, ordinal-prefixed headings.
+- **The difference between "none" and "unknown".** A context pack reports its contents'
+  staleness as unknown when no git history was handed in, and the test asserts the word.
+  Collapsing the two is how a tool ends up claiming a clean result it never established, and
+  it is invisible in any test that only checks the happy path.
 - **Both sides of a refusal.** `create` refusing a competing document is only worth having if
   it refuses the right ones, so the tests assert the false-positive side as hard as the true
   one: a narrower name is reported and still written, an unrelated name is written silently,

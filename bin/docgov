@@ -712,11 +712,35 @@ function cmdBrief() {
   const c = ctx();
   const topic = flags._[0] || flags.topic;
   if (!topic) throw new DocGovError('usage: docgov brief <topic>');
-  const pack = ctxpack.pack({ cfg: c.cfg, docs: c.docs, graph: c.graph, topic: String(topic),
+
+  // Staleness of the pack's own contents is a git question, and the engine stays callable
+  // without git — so it is answered here, where the repository is, and handed in. Without a
+  // repository the pack reports that it does not know, rather than reporting "none".
+  let drift = null;
+  try {
+    drift = driftmod.analyze({ root: c.root, cfg: c.cfg, docs: c.docs, graph: c.graph });
+  } catch { drift = null; }
+
+  const compiled = ctxpack.compile({ cfg: c.cfg, docs: c.docs, graph: c.graph, topic: String(topic),
     budget: flags.budget ? parseInt(flags.budget, 10) : undefined,
-    include: flags.include ? list(flags.include) : null });
-  if (JSONOUT) return emit({ topic, pack }) ?? EXIT.OK;
-  console.log(pack);   // always stdout: this is what a skill injects
+    include: flags.include ? list(flags.include) : null, drift });
+  const text = ctxpack.render(compiled);
+
+  if (JSONOUT) {
+    return emit({ topic, pack: text, map: compiled.map,
+      selected: compiled.selected.map((x) => ({ id: x.doc.id, path: x.doc.path, why: x.why })),
+      decisions: compiled.decisions }) ?? EXIT.OK;
+  }
+  // The pack itself is the only thing on stdout by default: the skill injects stdout verbatim
+  // (and merges stderr into it), so anything else printed here is tokens an agent pays for
+  // and may read as part of the brief.
+  console.log(text);
+  if (flags.explain) {
+    console.log('');
+    console.log('## How this pack was chosen');
+    console.log('');
+    for (const d of compiled.decisions) console.log(`${d.state.padEnd(8)} ${d.path} — ${d.why}`);
+  }
   return EXIT.OK;
 }
 
@@ -1247,6 +1271,8 @@ Every day
   checklist [--pr]                           those docs as a checklist; --pr prints the PR comment
   find "<query>"                             search your docs, best source first
   whatis [--path P]                          what is this document, and where does it belong
+  brief <topic> [--explain]                  everything an agent must know about an area, and
+                                             nothing else; --explain says how it chose
 
 When something is off
   stale [--base REF]                         docs the code moved out from under

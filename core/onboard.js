@@ -7,7 +7,7 @@ import { assess, readmeOverreach, splitCandidates } from './size.js';
 import { brokenLinks } from './links.js';
 import { primaryAuthor, isRepo, isClean, lastCommitDate } from './git.js';
 import { locationFor } from './config.js';
-import { matchAny, table, plural } from './util.js';
+import { matchAny, table, plural, exists } from './util.js';
 
 /**
  * Existing-project review (PRD §15, §44).
@@ -105,6 +105,30 @@ export function plan({ root, cfg, docs, inv, graph, registry }) {
           : `${ra < rb ? p.a : p.b} wins a contradiction` };
     });
 
+  // Destination collisions, found while the plan is still a plan. `migrate` refuses to
+  // execute these — two documents at one path would destroy one of them — but it only
+  // discovers them at execution, after the user has read the plan and decided to trust
+  // it. A plan that cannot run should say so on the page where it is approved.
+  const collisions = [];
+  const claimed = new Map();
+  const moving = new Set(actions.filter((a) => (a.kind === 'MOVE' || a.kind === 'ARCHIVE')
+    && a.to && a.to !== a.path).map((a) => a.path));
+  for (const a of actions) {
+    if (!((a.kind === 'MOVE' || a.kind === 'ARCHIVE') && a.to && a.to !== a.path)) continue;
+    if (claimed.has(a.to)) {
+      collisions.push({ kind: 'two-documents', to: a.to, paths: [claimed.get(a.to), a.path],
+        reason: `\`${claimed.get(a.to)}\` and \`${a.path}\` both want \`${a.to}\`` });
+      a.requiresJudgement = true; a.risk = 'high';
+      const other = actions.find((x) => x.path === claimed.get(a.to) && x.kind === a.kind);
+      if (other) { other.requiresJudgement = true; other.risk = 'high'; }
+    } else if (exists(path.join(root, a.to)) && !moving.has(a.to)) {
+      collisions.push({ kind: 'onto-existing', to: a.to, paths: [a.path],
+        reason: `\`${a.to}\` already exists and is not itself being moved` });
+      a.requiresJudgement = true; a.risk = 'high';
+    }
+    claimed.set(a.to, a.path);
+  }
+
   const summary = {
     documents: docs.length,
     unclassified: classifications.filter((c) => c.proposed === 'unknown').length,
@@ -117,6 +141,7 @@ export function plan({ root, cfg, docs, inv, graph, registry }) {
     archives: actions.filter((a) => a.kind === 'ARCHIVE').length,
     creates: actions.filter((a) => a.kind === 'CREATE').length,
     brokenLinks: broken.length,
+    collisions: collisions.length,
     duplicateCandidates: duplicates.length,
     needJudgement: actions.filter((a) => a.requiresJudgement).length,
     highRisk: actions.filter((a) => a.risk === 'high').length,
@@ -127,6 +152,7 @@ export function plan({ root, cfg, docs, inv, graph, registry }) {
     layout: cfg.project.layout, mode: cfg.project.mode,
     git: { repo: gitAvailable, clean: gitAvailable ? isClean(root) : false },
     summary, classifications, actions, duplicates, contradictionCandidates, gaps, brokenLinks: broken,
+    collisions,
     stack: inv.stack.map((s) => ({ id: s.id, evidence: s.evidence[0], count: s.count })),
     contracts: inv.contracts,
     agentInstructions: inv.agentInstructions,
@@ -220,6 +246,17 @@ export function render(planData, cfg) {
     L.push('');
     for (const b of planData.brokenLinks.slice(0, 25)) L.push(`- \`${b.path}\` → \`${b.target}\``);
     if (planData.brokenLinks.length > 25) L.push(`- … and ${planData.brokenLinks.length - 25} more`);
+    L.push('');
+  }
+
+  if ((planData.collisions || []).length) {
+    L.push('## Destination collisions — this plan will not run as written');
+    L.push('');
+    L.push('`docgov fix` refuses all of these: moving two documents onto one path, or onto a');
+    L.push('file that is staying put, would destroy a document. Decide a destination for each,');
+    L.push('edit it here, and the rest of the plan runs unchanged.');
+    L.push('');
+    for (const c of planData.collisions) L.push(`- ${c.reason}`);
     L.push('');
   }
 

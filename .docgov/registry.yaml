@@ -7,8 +7,8 @@ documents:
     visibility: public
     title: Architecture
     owner: docgov
-    hash: 1a2723af25baa5eb
-    lines: 129
+    hash: 10e89babc33f5e5d
+    lines: 130
     relationships:
       implements:
         - docgov-prd
@@ -22,8 +22,8 @@ documents:
     registered_in: config
     title: Changelog
     owner: docgov
-    hash: 3a207fe2fdc637d1
-    lines: 251
+    hash: 360a24f1d50682ce
+    lines: 255
   code-of-conduct:
     path: CODE_OF_CONDUCT.md
     type: governance.code-of-conduct
@@ -263,8 +263,8 @@ documents:
     visibility: public
     title: Testing strategy
     owner: docgov
-    hash: 8f43a12a0d1bdb13
-    lines: 113
+    hash: efa3781350c01ead
+    lines: 117
     relationships:
       depends_on:
         - development

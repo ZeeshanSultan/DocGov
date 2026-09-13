@@ -239,10 +239,17 @@ function cmdReview() {
     { Finding: 'documents to archive', Count: s.archives },
     { Finding: 'missing documents', Count: s.creates },
     { Finding: 'broken internal links', Count: s.brokenLinks },
+    { Finding: 'destination collisions', Count: s.collisions || 0 },
   ], ['Finding', 'Count']));
   say('');
   say(`Plan written to ${onboardmod.PLAN_PATH} — nothing has changed.`);
   say(`${s.needJudgement} of ${planData.actions.length} actions need a judgement call.`);
+  if (s.collisions) {
+    say('');
+    say(`${plural(s.collisions, 'destination collision')} — \`docgov fix\` will refuse until resolved.`);
+    for (const c of planData.collisions.slice(0, 5)) say(`  ${c.reason.replace(/`/g, '')}`);
+    if (planData.collisions.length > 5) say(`  … and ${planData.collisions.length - 5} more`);
+  }
   say('');
   say('Read the plan, delete anything you disagree with, then: docgov fix --dry-run');
   return EXIT.OK;

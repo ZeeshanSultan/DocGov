@@ -62,7 +62,13 @@ export function defaults() {
         '.github/ISSUE_TEMPLATE/**', '.github/issue_template/**',
         '**/PULL_REQUEST_TEMPLATE.md', '**/pull_request_template.md',
         '**/ISSUE_TEMPLATE.md', '**/issue_template.md',
-        '**/CHANGELOG_UNRELEASED.md'],
+        '**/CHANGELOG_UNRELEASED.md',
+        // Test fixtures are inputs to a test, not documentation. A README inside one
+        // describes the fixture to whoever maintains the test, and moving it out of the
+        // tree breaks the test that resolves paths into it — ShellPilot's k8s tests do
+        // exactly that. `testdata/` is Go's compiler-ignored convention; the rest are the
+        // common spellings elsewhere.
+        '**/testdata/**', '**/fixtures/**', '**/__fixtures__/**', '**/__snapshots__/**'],
       // Documents governed from here instead of from frontmatter in the file. GitHub renders
       // YAML frontmatter in Markdown as a table, so the files it surfaces on a project's
       // front page — README, CONTRIBUTING, SECURITY, CHANGELOG — should not carry any.

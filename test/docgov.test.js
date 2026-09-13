@@ -817,6 +817,48 @@ test('cli: check exits 1 on a blocking violation and 0 once it is fixed', () => 
   assert.equal(cli(dir, ['check']).code, EXIT.OK);
 });
 
+test('cli: review names a destination collision instead of leaving it to fix', () => {
+  // `fix` refuses these — two documents at one path destroys one of them — but it only
+  // found out at execution, after the plan had been read and approved. Three real
+  // repositories had 29, 12 and 1 collisions; every one of those plans was unrunnable
+  // and nothing said so. Same-basename documents in different directories both resolve
+  // to <canonical dir>/<basename>, which is how they arise.
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  wf(dir, 'a/runbook.md', '# R\n\nOn a SEV-1, escalate to the on-call rota.\n');
+  wf(dir, 'b/runbook.md', '# R2\n\nOn a SEV-2, escalate to the on-call rota.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  const r = cli(dir, ['review']);
+  assert.equal(r.code, 0);
+  assert.match(r.out, /destination collision/i, 'review must say the plan will not run');
+
+  const plan = JSON.parse(fs.readFileSync(path.join(dir, '.docgov', 'fix-plan.json'), 'utf8'));
+  assert.ok(plan.collisions.length >= 1, 'the collision must be in the machine-readable plan');
+  assert.ok(plan.collisions.every((c) => c.paths.length && c.to), 'each names its paths and destination');
+  // and the actions involved must be flagged, not silently left as mechanical
+  const flagged = plan.actions.filter((a) => a.kind === 'MOVE' && a.risk === 'high');
+  assert.ok(flagged.length >= 2, 'both sides of a collision need a human');
+});
+
+test('cli: test fixtures are not documentation', () => {
+  // A README inside a fixture describes the fixture. Moving it out breaks the test that
+  // resolves paths into that tree — ShellPilot's k8s tests do exactly that.
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  wf(dir, 'tests/fixtures/k8s/README.md', '# fixture\n');
+  wf(dir, 'internal/testdata/golden/README.md', '# golden\n');
+  wf(dir, 'docs/real.md', '# real\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  cli(dir, ['review']);
+  const plan = JSON.parse(fs.readFileSync(path.join(dir, '.docgov', 'fix-plan.json'), 'utf8'));
+  const governed = plan.classifications.map((c) => c.path);
+  assert.ok(!governed.some((p2) => p2.includes('fixtures/')), 'fixtures are not governed');
+  assert.ok(!governed.some((p2) => p2.includes('testdata/')), 'testdata is not governed');
+  assert.ok(governed.includes('docs/real.md'), 'ordinary documentation still is');
+});
+
 test('cli: fix refuses to run on a dirty tree', () => {
   const dir = tmpRepo();
   wf(dir, 'package.json', '{"name":"t"}');

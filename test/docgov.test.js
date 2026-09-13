@@ -2206,3 +2206,86 @@ test('scopes: two packages owning the same subject are not competing', () => {
   assert.equal(within.length, 1);
   assert.ok(within[0].paths.every((p) => p.startsWith('packages/auth/')));
 });
+
+// --- annotating a document must not delete what somebody wrote ----------------------
+
+test('patchDocgov keeps every line it did not write, comments included', () => {
+  const src = ['---',
+    '# Hugo needs this weight or the nav order breaks',
+    'title: "Getting started"',
+    'weight: 3        # first in the section',
+    '',
+    'draft: false',
+    '---',
+    '# Getting started',
+    '',
+    'Body.',
+    ''].join('\n');
+
+  const out = fm.patchDocgov(src, { id: 'getting-started', type: 'user.guide' });
+  for (const line of ['# Hugo needs this weight or the nav order breaks',
+    'title: "Getting started"', 'weight: 3        # first in the section', 'draft: false']) {
+    assert.ok(out.includes(line), `lost: ${line}`);
+  }
+  assert.match(out, /docgov:\n  id: getting-started/);
+  // The body is untouched, byte for byte, as it always was.
+  assert.ok(out.endsWith('# Getting started\n\nBody.\n'));
+
+  // Every key still parses to the same value: preserving the text must not change the data.
+  const before = fm.parse(src).data;
+  const after = fm.parse(out).data;
+  for (const k of Object.keys(before)) assert.deepEqual(after[k], before[k], `key ${k} changed`);
+});
+
+test('patchDocgov replaces an existing docgov block in place, keeping its neighbours', () => {
+  const src = ['---',
+    '# top of file',
+    'title: A',
+    'docgov:',
+    '  id: old',
+    '  type: user.guide',
+    '  visibility: internal',
+    'weight: 9   # keep this comment',
+    '---',
+    '# A',
+    ''].join('\n');
+
+  const out = fm.patchDocgov(src, { id: 'new', type: 'user.guide' });
+  assert.ok(out.includes('# top of file'));
+  assert.ok(out.includes('weight: 9   # keep this comment'));
+  assert.equal(fm.parse(out).data.docgov.id, 'new');
+  assert.equal(fm.parse(out).data.weight, 9);
+  assert.ok(!out.includes('id: old'));
+  // Replaced in place rather than moved to the front: the file's own ordering is its own.
+  assert.ok(out.indexOf('title: A') < out.indexOf('docgov:'));
+});
+
+test('patchDocgov round-trips through the whole write path, not just the function', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# Thing\n\nA thing.\n');
+  // A document `tag` will actually annotate: it only writes where classification is
+  // confident, so a fixture it abstains on would test nothing at all.
+  wf(dir, 'docs/runbooks/failover.md', ['---',
+    '# do not reorder these',
+    'title: Failover',
+    'weight: 2',
+    '---',
+    '# Failover runbook',
+    '',
+    '## Trigger',
+    '',
+    'The primary alert fires.',
+    '',
+    '## Procedure',
+    '',
+    '1. Fail over.',
+    ''].join('\n'));
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  assert.equal(cli(dir, ['tag', '--apply', '--path', 'docs/runbooks/failover.md']).code, EXIT.OK);
+
+  const after = fs.readFileSync(path.join(dir, 'docs/runbooks/failover.md'), 'utf8');
+  assert.ok(after.includes('# do not reorder these'), 'a governance tool must not delete what somebody wrote');
+  assert.ok(after.includes('weight: 2'));
+  assert.match(after, /docgov:/);
+});

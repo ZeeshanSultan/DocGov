@@ -148,6 +148,11 @@ commit real files, and run the real binary as a subprocess.
 - **A scope, from both sides.** Package documents must stay in their package, *and* a nested
   `docs/guides/README.md` must still be a directory index rather than a project README. Scoping
   that only loosens is how every nested README in a repository becomes a second front page.
+- **What an edit preserved, not only what it wrote.** Annotation is asserted on the lines it
+  did *not* touch: a comment above the keys, an inline comment, a Hugo `weight`, the file's own
+  key order. The data is checked too, because preserving the text must not change the values.
+  A test that only checks the `docgov:` block appeared passes while the rest of the file is
+  being deleted.
 - **Both sides of a refusal.** `create` refusing a competing document is only worth having if
   it refuses the right ones, so the tests assert the false-positive side as hard as the true
   one: a narrower name is reported and still written, an unrelated name is written silently,

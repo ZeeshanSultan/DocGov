@@ -66,6 +66,16 @@ with a migration note.
   action carries its `tier` in the JSON. The old Risk table is gone — it was the same fact,
   said twice.
 
+### Fixed
+
+- **Annotating a document no longer deletes the comments in its frontmatter.** `patchDocgov`
+  rebuilt the whole block from the parsed object, so keys, values, types and ordering all
+  survived and every comment silently did not — a Hugo `weight` kept its value and lost the
+  line explaining why it was there. Only the `docgov:` block is DocGov's to write, so only
+  those lines are replaced now; comments, blank lines, quoting style and key order are carried
+  across as text. A comment *inside* the docgov block is still lost, that block being the one
+  part of the file DocGov owns.
+
 - **A monorepo has more than one authority.** A directory with a package manifest is a scope,
   read from the boundaries the repository's build tooling already draws (config can name more,
   or opt out). Inside a scope, a document's canonical destination stays in its package, there

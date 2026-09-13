@@ -114,6 +114,10 @@ commit real files, and run the real binary as a subprocess.
   asserted against what `migrate` actually executes, not against the wording alone. A tier
   that said `fix` would skip a move it in fact performs would be a lie no test of the renderer
   on its own could catch.
+- **Every place a fact is declared, not the obvious two.** The version check is tested against
+  a manifest that declares a version *nested*, and in more than one place. Checking the two
+  obvious files was itself the bug the check exists for, and cutting a release is what found
+  it — nothing else compares those files.
 - **The agreements between files, by breaking them.** `doctor`'s checks are tested against a
   deliberately broken plugin tree — a hook naming an event the CLI dropped, a skill whose
   `name:` no longer matches its directory, an option nothing reads, two manifests at different

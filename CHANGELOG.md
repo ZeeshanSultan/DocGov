@@ -11,6 +11,14 @@ with a migration note.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.3.0] — 2026-09-13
+
+Twelve pieces of pre-1.0 work, each landed on its own. The shape of the release: DocGov
+stopped assuming it was the only thing writing in the repository, and stopped presenting a
+model's reading as if software had decided it.
+
 ### Added
 
 - **Every persisted artifact declares a version, and every read checks it.** Config, the

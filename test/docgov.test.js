@@ -1741,12 +1741,25 @@ test('doctor: an advertised option nothing reads is a failure', () => {
   assert.match(c2.message, /nobody_reads_this/);
 });
 
-test('doctor: the two manifests must agree on the version', () => {
+test('doctor: every manifest that declares a version must agree', () => {
   const repo = tmpRepo();
   const dir = fakePlugin('1.0.0');
   wf(dir, '.claude-plugin/plugin.json', JSON.stringify({ version: '0.9.0', userConfig: {} }));
   const c = doctormod.run({ root: repo, pluginRoot: dir, env: {} }).checks.find((x) => x.id === 'version-skew');
   assert.equal(c.status, 'fail');
+
+  // A marketplace listing declares one too, nested, and in two places. Checking only the two
+  // obvious manifests was this same bug: cutting 0.3.0 found a third file nothing compared.
+  const ok3 = fakePlugin('1.0.0');
+  wf(ok3, '.claude-plugin/marketplace.json',
+    JSON.stringify({ version: '1.0.0', plugins: [{ name: 'docgov', version: '1.0.0' }] }));
+  assert.equal(doctormod.run({ root: repo, pluginRoot: ok3, env: {} }).checks.find((x) => x.id === 'version').status, 'ok');
+
+  wf(ok3, '.claude-plugin/marketplace.json',
+    JSON.stringify({ version: '1.0.0', plugins: [{ name: 'docgov', version: '0.9.9' }] }));
+  const skew = doctormod.run({ root: repo, pluginRoot: ok3, env: {} }).checks.find((x) => x.id === 'version-skew');
+  assert.equal(skew.status, 'fail');
+  assert.match(skew.message, /marketplace\.json says 0\.9\.9/);
 });
 
 test('doctor: the committed agent rules are checked against the config that generated them', () => {

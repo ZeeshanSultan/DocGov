@@ -62,6 +62,11 @@ export function cmdCheck(flags) {
 
   if (json()) {
     emit(schemamod.stamp('findings', {
+      // Which repository these findings are about. A report that outlives the tree it
+      // describes is worse than no report, and with several agents in one repository a
+      // findings payload can easily be read after another one has moved the documents.
+      revision: { head: git.headSha(c.root), clean: git.isRepo(c.root) ? git.isClean(c.root) : null,
+        documents: c.docs.length, tree: onboardmod.fingerprintOf(c.root, c.docs, git.isRepo(c.root)).tree },
       exitCode: code, stats, findings: split.active, judgements, suppressed: split.suppressed.length,
       expiredSuppressions: split.expired, drift: driftSplit.active, unusedSuppressions: split.unused,
       scanSkipped: c.inv?.scanSkipped || [] }));

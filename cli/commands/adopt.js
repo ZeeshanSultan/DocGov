@@ -159,6 +159,27 @@ export function cmdFix(flags) {
   const planData = onboardmod.loadPlan(c.root);
   if (!planData) throw new DocGovError('no fix plan found. Run `docgov review` first.');
   const dryRun = flags.dry_run === true || flags.dry === true;
+
+  // A plan is a list of file operations computed against a particular set of documents.
+  // Executing it against a different set is how a migration destroys something, and with a
+  // main agent and subagents in one repository that is ordinary rather than exotic: one
+  // agent writes documentation while another is still holding a plan that predates it.
+  const drift = onboardmod.planDrift(planData, c.docs);
+  if (drift && flags.force !== true) {
+    const name = (xs, label) => (xs.length ? [`  ${xs.length} ${label}:`, ...xs.slice(0, 5).map((x) => `    ${x}`),
+      ...(xs.length > 5 ? [`    … and ${xs.length - 5} more`] : [])] : []);
+    throw new DocGovError([
+      'the documentation has changed since this plan was written, so the plan no longer',
+      'describes this repository.',
+      ...name(drift.added, 'added'),
+      ...name(drift.removed, 'removed'),
+      ...name(drift.modified, 'modified'),
+      '',
+      'Run `docgov review` again and read the new plan. `--force` runs this one anyway, on',
+      'the understanding that its destinations were computed for documents that have moved.',
+    ].join('\n'));
+  }
+
   const include = list(flags.include);
   const skip = flags.skip ? list(flags.skip) : [];
   const useGit = flags.no_git !== true;

@@ -119,6 +119,7 @@ docgov fix --include split,merge,extract    # also the judgement calls
 | Flag | |
 |---|---|
 | `--dry-run` | print the operations, change nothing |
+| `--force` | run a plan the repository has moved out from under (see below) |
 | `--include split,merge,extract` | also run these action kinds |
 | `--branch <name>` | branch to work on. Defaults to `docgov/migration-YYYY-MM-DD` |
 | `--no-branch` | work on the current branch |
@@ -126,6 +127,16 @@ docgov fix --include split,merge,extract    # also the judgement calls
 | `--commit` | commit on success |
 | `--skip <ID,..>` | drop individual actions by the id shown in the plan |
 | `--keep` | don't revert if verification fails — useful for debugging |
+
+**It refuses a plan the repository has moved out from under.** A plan is a list of file
+operations computed against a particular set of documents, and running it against a different
+set is how a migration destroys something. With a main agent and subagents in one repository
+that is ordinary: one writes documentation while another is still holding a plan that predates
+it. `review` records a fingerprint of the documents it saw; `fix` compares and names what was
+added, removed or modified before it refuses. `--force` runs it anyway.
+
+A plan written before fingerprints existed has none and still runs — every repository that
+adopted DocGov earlier holds one.
 
 **Needs git and a clean tree.** If verification finds problems it runs `git reset --hard` and
 you're back where you started. That's the whole promise, and it only works if every change is

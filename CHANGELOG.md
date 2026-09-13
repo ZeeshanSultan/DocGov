@@ -45,6 +45,19 @@ with a migration note.
   `--force` overrides a refusal.
 ### Changed
 
+- **`docgov doctor` also checks that every source directory is published.** Splitting the CLI
+  put `cli/` outside `package.json` `files`, which would have shipped a binary importing a
+  directory that was not in the tarball — visible only on an install.
+- **`bin/docgov` is a dispatcher, not the whole CLI.** It was 1,394 lines of parsing,
+  formatting, every command and the entire hook protocol, with `flags` and `JSONOUT` as module
+  globals that every function could read and no signature named — which is what made it the
+  one file a mechanical edit could not be trusted on. Now 93 lines; the rest is `cli/parse.js`,
+  `cli/output.js`, `cli/context.js`, `cli/hooks.js` and `cli/commands/{adopt,author,verify,
+  state}.js`, grouped by what the user is doing. Commands take their flags as an argument and
+  output mode is configured once. No behaviour changed: every command's output was diffed
+  byte-for-byte against the previous build across three repositories, along with the hook
+  protocol and the plans `review` writes.
+
 - **The fix plan is grouped by what it asks of you**, not by what kind of action each one is,
   and it leads with the shape: `SAFE` / `HIGH CONFIDENCE` / `NEEDS REVIEW` with a count each.
   Two thousand actions in one undifferentiated list read as "this tool wants to rewrite my

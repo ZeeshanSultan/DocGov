@@ -118,6 +118,11 @@ commit real files, and run the real binary as a subprocess.
   deliberately broken plugin tree — a hook naming an event the CLI dropped, a skill whose
   `name:` no longer matches its directory, an option nothing reads, two manifests at different
   versions. Each is a failure that ships silently and that no test of a single file can see.
+- **That a refactor changed nothing, by diffing it.** A pure restructuring is not verified by
+  a passing suite — the suite only covers what it covers. Splitting the CLI was checked by
+  running every command, the whole hook protocol and the plan writer against three real
+  repositories on both builds and comparing the bytes. It found a path assumption the tests
+  did not: `pluginRootOf` counted directories up from its caller.
 - **Both sides of a refusal.** `create` refusing a competing document is only worth having if
   it refuses the right ones, so the tests assert the false-positive side as hard as the true
   one: a narrower name is reported and still written, an unrelated name is written silently,

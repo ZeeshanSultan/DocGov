@@ -121,6 +121,18 @@ function install(pluginRoot) {
     }
   }
 
+  // Every directory the code imports from has to be in package.json `files`, or the published
+  // tarball is a binary importing a directory that is not there. `cli/` was one refactor away
+  // from exactly that, and nothing but an install would have shown it.
+  if (pkg?.files) {
+    const shipped = new Set(pkg.files);
+    const needed = ['bin', 'cli', 'core'].filter((d) => exists(at(d)) && !shipped.has(d));
+    out.push(needed.length
+      ? fail('package-files', `package.json does not publish ${needed.join(', ')}`,
+        'the published tarball would be missing code the binary imports; add it to `files`')
+      : ok('package-files', 'every source directory is published'));
+  }
+
   // A skill whose `name:` differs from its directory registers under the wrong slash command,
   // or under none. It is the quietest failure in the whole install.
   const skillsDir = at('skills');
@@ -163,10 +175,10 @@ function plugin(pluginRoot, env) {
   const manifest = readJSON(path.join(pluginRoot, '.claude-plugin', 'plugin.json'));
   const keys = Object.keys(manifest?.userConfig || {});
   if (keys.length) {
-    const source = [safeRead(path.join(pluginRoot, 'bin', 'docgov')),
-      ...fs.existsSync(path.join(pluginRoot, 'core'))
-        ? fs.readdirSync(path.join(pluginRoot, 'core')).map((f) => safeRead(path.join(pluginRoot, 'core', f)))
-        : []].join('\n');
+    // Every source directory, walked. Scanning a fixed list of two was itself a version of
+    // the bug this check exists for: splitting the CLI moved the reader of one option into a
+    // directory the scan did not know about, and doctor reported the option as unread.
+    const source = sources(pluginRoot).join('\n');
     const unread = keys.filter((k) => !source.includes(`CLAUDE_PLUGIN_OPTION_${k}`)
       && !source.includes(`CLAUDE_PLUGIN_OPTION_${k.toUpperCase()}`));
     out.push(unread.length
@@ -294,9 +306,33 @@ function safeRead(file) {
   try { return read(file); } catch { return ''; }
 }
 
-/** Where this install lives, whatever it was invoked as. */
-export function pluginRootOf(metaUrl) {
-  return path.dirname(path.dirname(fileURLToPath(metaUrl)));
+/** Every `.js` file DocGov ships, wherever it lives. */
+function sources(pluginRoot, dirs = ['bin', 'core', 'cli']) {
+  const out = [];
+  const walk = (abs) => {
+    let entries = [];
+    try { entries = fs.readdirSync(abs, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const p = path.join(abs, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.isFile()) out.push(safeRead(p));
+    }
+  };
+  for (const d of dirs) walk(path.join(pluginRoot, d));
+  return out;
+}
+
+/**
+ * Where this install lives, whatever it was invoked as.
+ *
+ * Anchored to this module rather than to the caller's `import.meta.url`. It used to take the
+ * caller's, which was correct only while the caller was `bin/docgov` — moving the command into
+ * `cli/commands/` silently resolved the root one directory too deep, and doctor then reported
+ * its own install as broken. `core/doctor.js` is always exactly one directory below the root,
+ * so this is the one location that cannot drift.
+ */
+export function pluginRootOf() {
+  return path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 }
 
 /** Parse YAML without throwing, for checks that only care whether it parses. */

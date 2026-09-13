@@ -179,5 +179,5 @@ against real temporary git repositories.
 
 ## Licence
 
-MIT. See [PRD.md](PRD.md) for the full product specification and
-[FEASIBILITY.md](FEASIBILITY.md) for how it maps onto Claude Code primitives.
+MIT. See [PRD.md](docs/product/PRD.md) for the full product specification and
+[FEASIBILITY.md](docs/FEASIBILITY.md) for how it maps onto Claude Code primitives.

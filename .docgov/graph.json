@@ -3,8 +3,21 @@
   "generated": "2026-09-13",
   "nodes": [
     {
+      "id": "readme",
+      "path": "README.md",
+      "type": "user.readme",
+      "authority": "audience",
+      "visibility": "public",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 184,
+      "hash": "6349d422e49ec509",
+      "generated": false
+    },
+    {
       "id": "docgov-feasibility",
-      "path": "FEASIBILITY.md",
+      "path": "docs/FEASIBILITY.md",
       "type": "architecture.assessment",
       "authority": "decision",
       "visibility": "internal",
@@ -17,7 +30,7 @@
     },
     {
       "id": "docgov-prd",
-      "path": "PRD.md",
+      "path": "docs/product/PRD.md",
       "type": "product.prd",
       "authority": "requirements",
       "visibility": "internal",
@@ -26,19 +39,6 @@
       "kind": "document",
       "lines": 1809,
       "hash": "9d7de81ce1b419cd",
-      "generated": false
-    },
-    {
-      "id": "readme",
-      "path": "README.md",
-      "type": "user.readme",
-      "authority": "audience",
-      "visibility": "public",
-      "domain": null,
-      "status": "active",
-      "kind": "document",
-      "lines": 184,
-      "hash": "00fdcd2e0b2e5199",
       "generated": false
     },
     {

@@ -1,7 +1,7 @@
 version: 1
 documents:
   docgov-feasibility:
-    path: FEASIBILITY.md
+    path: docs/FEASIBILITY.md
     type: architecture.assessment
     authority: decision
     visibility: internal
@@ -13,7 +13,7 @@ documents:
       implements:
         - docgov-prd
   docgov-prd:
-    path: PRD.md
+    path: docs/product/PRD.md
     type: product.prd
     authority: requirements
     visibility: internal
@@ -35,7 +35,7 @@ documents:
     authority: audience
     visibility: public
     title: DocGov
-    hash: 00fdcd2e0b2e5199
+    hash: 6349d422e49ec509
     lines: 184
   schemas-config:
     path: schemas/config.json

@@ -44,6 +44,9 @@ commit real files, and run the real binary as a subprocess.
 - **Every template against its own gate.** The test *every document class produces a document
   that satisfies its own gate* is what keeps every class honest — adding a class with mismatched
   sections fails immediately.
+- **That a generated documentation site is classified but never moved.** Both halves
+  matter: the pages are recognised from the site config, and no action relocates one, because
+  its path is its URL.
 - **That prose alone never makes a classification trustworthy**, while a documentation
   layout somebody chose does — and that a lone candidate is not reported as a close call
   against a rival that does not exist.

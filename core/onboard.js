@@ -40,7 +40,7 @@ export function plan({ root, cfg, docs, inv, graph, registry }) {
     });
 
     const archived = matchAny(d.path, ['docs/99-archive/**', 'docs/archive/**']);
-    const target = archived ? d.path : destinationFor(cfg, c.type, d.path);
+    const target = archived ? d.path : destinationFor(cfg, c.type, d.path, d);
 
     if (c.type === 'unknown') {
       actions.push({ kind: 'CLASSIFY', path: d.path, reason: 'no classification signal matched',

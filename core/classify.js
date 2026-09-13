@@ -234,6 +234,13 @@ export function classify(doc) {
     if (type) bump(type, w, `located in ${glob}`, 'structural');
     if (authority) for (const [id, t] of Object.entries(TYPES)) if (t.authority === authority) bump(id, w, `located in ${glob}`, 'structural');
   }
+  // Inside a generated documentation site, the site's own configuration says these pages
+  // are published documentation. Their sections are named for readers — `ai-assistant/`,
+  // `cli-reference/`, `errors/` — so no naming convention reaches them, and one repository
+  // had 363 such documents matching nothing at all. Weighted so that a more specific
+  // signal, including the Diátaxis names above, still wins.
+  if (doc.inSiteContent) bump('user.guide', 45, 'inside a published documentation site', 'structural');
+
   const body = doc.body ?? '';
   for (const [re, type, w] of CONTENT_SIGNALS) {
     if (re.test(body)) bump(type, w, `content matches ${re.source.slice(0, 34)}`);
@@ -298,9 +305,14 @@ export function classify(doc) {
 }
 
 /** Suggested destination path for a doc of `type`, given the active layout. */
-export function destinationFor(cfg, type, currentPath) {
+export function destinationFor(cfg, type, currentPath, doc = null) {
   const t = TYPES[type] || TYPES.unknown;
   if (t.anywhere) return currentPath;                       // belongs to its directory
+  // Inside a generated documentation site a page's path is its URL, and the navigation,
+  // the section indexes and every inbound link are built from it. Classifying those pages
+  // is useful; relocating them publishes a different site. One repository would have had
+  // 287 pages moved out of its content tree into docs/08-user/guides/.
+  if (doc && doc.inSiteContent) return currentPath;
   // Anchored: something outside this repository looks for the file at a path it
   // hard-codes. GitHub reads README, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY and SUPPORT
   // from the root, `.github/` or `docs/` and nowhere else; Claude Code reads CLAUDE.md,

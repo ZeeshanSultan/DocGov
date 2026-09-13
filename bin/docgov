@@ -365,7 +365,7 @@ function cmdTag() {
     const res = classify(d);
     if (res.type === 'unknown') { changes.push({ path: d.path, action: 'needs-classification' }); continue; }
     const needsMeta = !d.externallyRegistered && (!d.registered || !d.meta.type || !d.meta.visibility);
-    const dest = destinationFor(c.cfg, res.type, d.path);
+    const dest = destinationFor(c.cfg, res.type, d.path, d);
     if (!needsMeta && dest === d.path) continue;
     const entry = { path: d.path, action: needsMeta ? 'annotate' : 'move', type: res.type, destination: dest };
     if (apply && needsMeta) {

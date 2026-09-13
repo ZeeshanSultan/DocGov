@@ -31,6 +31,10 @@ const AGENT_INSTRUCTION_FILES = ['CLAUDE.md', 'AGENTS.md', 'GEMINI.md', '.cursor
 
 const MD = /\.mdx?$/i;
 
+/** Files that mark a directory as the root of a generated documentation site. */
+const SITE_CONFIG_FILES = ['config.toml', 'hugo.toml', 'hugo.yaml', 'hugo.json', 'config.yaml',
+  'config.dev.toml', 'mkdocs.yml', 'mkdocs.yaml', 'docusaurus.config.js', 'docusaurus.config.ts'];
+
 /**
  * Full repository sweep. One filesystem walk, everything derived from it.
  * @param {string} root
@@ -43,7 +47,23 @@ export function inventory(root, cfg) {
 
   const mdPaths = all.filter((p) => MD.test(p) && matchAny(p, include) && !matchAny(p, exclude));
   const registrations = cfg.documentation?.registrations || {};
-  const documents = mdPaths.map((p) => new Document(root, p, undefined, registrations[p]));
+  // A static-site generator's content tree is, by the site's own configuration, the
+  // documentation it publishes. Its section names are chosen for readers — `ai-assistant/`,
+  // `cli-reference/`, `errors/` — so no naming convention reaches them: one repository had
+  // 363 documents in a Hugo tree that matched no signal at all. Where they sit is the
+  // evidence, and the generator config is what establishes it.
+  const siteRoots = [...new Set(all
+    .filter((p) => SITE_CONFIG_FILES.includes(path.posix.basename(p)))
+    .map((p) => path.posix.dirname(p))
+    .filter((dir) => all.some((p) => p.startsWith(dir === '.' ? 'content/' : `${dir}/content/`))))];
+  const inSiteContent = (rel) => siteRoots.some((dir) =>
+    rel.startsWith(dir === '.' ? 'content/' : `${dir}/content/`));
+
+  const documents = mdPaths.map((p) => {
+    const d = new Document(root, p, undefined, registrations[p]);
+    if (inSiteContent(p)) d.inSiteContent = true;
+    return d;
+  });
 
   const contracts = [];
   for (const glob of (cfg.contracts?.openapi || [])) {
@@ -68,6 +88,7 @@ export function inventory(root, cfg) {
   const codePaths = all.filter((p) => /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|rb|java|kt|swift|cs|php|ex|scala|c|cc|cpp|h|hpp)$/.test(p));
 
   return {
+    siteRoots,
     root, all, documents, contracts, stack, manifests, agentInstructions, codePaths,
     counts: {
       files: all.length, documents: documents.length, contracts: contracts.length,

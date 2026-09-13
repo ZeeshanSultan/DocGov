@@ -901,6 +901,32 @@ test('cli: one unreadable document does not stop the others being migrated', () 
   assert.doesNotMatch(r.out, /docs\/fine\.md\n\s+invalid/, 'the readable one is unaffected');
 });
 
+test('cli: a generated documentation site is classified but never relocated', () => {
+  // A page's path inside a content tree is its URL, and the navigation, the section
+  // indexes and every inbound link are built from it. One repository had 363 such pages
+  // matching no signal at all; classifying them then proposed moving 287 of them out of
+  // the tree, which publishes a different site.
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  wf(dir, 'site/config.toml', 'baseURL = "/"\n');
+  wf(dir, 'site/content/ai-assistant/use-billy.md', '# Billy\n\nHow to use it.\n');
+  wf(dir, 'site/content/errors/CHW-1001.md', '# CHW-1001\n\nWhat it means.\n');
+  wf(dir, 'notes/stray.md', '# Stray\n\nUnrelated.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  cli(dir, ['review']);
+  const plan = JSON.parse(fs.readFileSync(path.join(dir, '.docgov', 'fix-plan.json'), 'utf8'));
+
+  const sitePages = plan.classifications.filter((c) => c.path.startsWith('site/content/'));
+  assert.equal(sitePages.length, 2);
+  assert.ok(sitePages.every((c) => c.proposed !== 'unknown'),
+    'the site config says these are published documentation');
+
+  const moved = plan.actions.filter((a) => a.kind === 'MOVE' && a.path.startsWith('site/content/'));
+  assert.deepEqual(moved, [], 'a page inside a content tree must never be relocated');
+  assert.equal(cli(dir, ['fix', '--dry-run']).code, 0);
+});
+
 test('cli: test fixtures are not documentation', () => {
   // A README inside a fixture describes the fixture. Moving it out breaks the test that
   // resolves paths into that tree — ShellPilot's k8s tests do exactly that.

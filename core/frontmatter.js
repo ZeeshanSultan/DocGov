@@ -45,15 +45,41 @@ export function patchDocgov(source, patch) {
   if (foreign) throw new DocGovError(
     `this document uses ${foreign.toUpperCase()} frontmatter, which DocGov does not write. `
     + 'Adding a YAML block above it would replace the frontmatter the site actually reads.');
-  const { data, body } = parse(source);
-  const next = { ...data, docgov: { ...(data.docgov || {}), ...patch } };
-  if (!('docgov' in data)) {
-    // keep docgov first so the governance block is the first thing a reader sees
-    const reordered = { docgov: next.docgov };
-    for (const k of Object.keys(data)) reordered[k] = data[k];
-    return stringify(reordered, body);
+  const { data, body, raw, hasFrontmatter } = parse(source);
+  const block = { ...(data.docgov || {}), ...patch };
+  const rendered = yaml.stringify({ docgov: block }).replace(/\n$/, '');
+
+  if (!hasFrontmatter) return `---\n${rendered}\n---\n${body.startsWith('\n') ? body.slice(1) : body}`;
+
+  // Splice, do not re-serialise.
+  //
+  // Rebuilding the whole block from the parsed object round-tripped every key, value, type
+  // and ordering correctly and silently deleted every comment, because the YAML subset parses
+  // to a plain object and a comment has nowhere in an object to live. A governance tool that
+  // edits people's files must not quietly delete what they wrote — it is the same reason TOML
+  // and JSON frontmatter are refused outright rather than converted.
+  //
+  // Only the `docgov:` block is DocGov's to write, so only those lines are replaced. Every
+  // other line, including comments, blank lines, quoting style and key order, is carried
+  // across untouched. Comments *inside* the docgov block are still lost: that block is
+  // regenerated, and it is the one part of the file DocGov owns.
+  const lines = raw.split('\n');
+  const start = lines.findIndex((l) => /^docgov[ \t]*:/.test(l));
+
+  if (start === -1) {
+    // Keep docgov first, so the governance block is the first thing a reader sees — but after
+    // any leading comment, which is almost always a header about the file as a whole.
+    let at = 0;
+    while (at < lines.length && /^\s*(#|$)/.test(lines[at])) at += 1;
+    const kept = [...lines.slice(0, at), ...rendered.split('\n'), ...lines.slice(at)];
+    return `---\n${kept.join('\n')}\n---\n${body.startsWith('\n') ? body.slice(1) : body}`;
   }
-  return stringify(next, body);
+
+  // The block runs to the next line that starts a new top-level key.
+  let end = start + 1;
+  while (end < lines.length && !/^[^\s#][^:]*:/.test(lines[end])) end += 1;
+  const kept = [...lines.slice(0, start), ...rendered.split('\n'), ...lines.slice(end)];
+  return `---\n${kept.join('\n')}\n---\n${body.startsWith('\n') ? body.slice(1) : body}`;
 }
 
 /** First markdown H1, used as a title fallback. */

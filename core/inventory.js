@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { detect as detectScopes, scopeOf, excluded as scopeExcluded } from './scopes.js';
 import { execFileSync } from 'node:child_process';
 import { walk, exists, read, matchAny, matchGlob, toPosix } from './util.js';
 import { Document } from './document.js';
@@ -60,9 +61,15 @@ export function inventory(root, cfg) {
   const inSiteContent = (rel) => siteRoots.some((dir) =>
     rel.startsWith(dir === '.' ? 'content/' : `${dir}/content/`));
 
+  // Which part of a monorepo each document governs. A package's architecture document is
+  // canonical for that package and says nothing about any other, and every package has its
+  // own README — both of which a repository-wide notion of authority gets wrong.
+  const scopes = detectScopes(root, cfg, all);
+
   const documents = mdPaths.map((p) => {
     const d = new Document(root, p, undefined, registrations[p]);
     if (inSiteContent(p)) d.inSiteContent = true;
+    if (!scopeExcluded(cfg, p)) d.scope = scopeOf(scopes, p)?.prefix || null;
     return d;
   });
 
@@ -90,6 +97,7 @@ export function inventory(root, cfg) {
 
   return {
     siteRoots,
+    scopes,
     scanSkipped,
     root, all, documents, contracts, stack, manifests, agentInstructions, codePaths,
     counts: {

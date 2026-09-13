@@ -66,6 +66,14 @@ with a migration note.
   action carries its `tier` in the JSON. The old Risk table is gone — it was the same fact,
   said twice.
 
+- **A monorepo has more than one authority.** A directory with a package manifest is a scope,
+  read from the boundaries the repository's build tooling already draws (config can name more,
+  or opt out). Inside a scope, a document's canonical destination stays in its package, there
+  is one README *per package*, and competing-responsibility comparisons do not cross packages.
+  On a real 1,011-document monorepo, 22 package documents were being proposed for the root
+  tree; all 19 now stay where they belong. The plan does not get much smaller — 345 proposed
+  moves became 343 — because that repository's documents are mostly not in packages at all.
+
 - **A fix plan records the repository it was computed against, and `fix` refuses if it has
   moved.** A plan is a list of file operations against a particular set of documents, and
   running it against a different set is how a migration destroys something — with a main agent

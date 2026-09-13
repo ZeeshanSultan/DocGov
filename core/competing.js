@@ -17,6 +17,8 @@ import { vectorize, cosine, topTerms } from './similarity.js';
  *
  * What is decidable here, and therefore what this reports:
  *
+ *   same scope      the package they govern. In a monorepo two packages each having a setup
+ *                   guide is not a duplicate; each is authoritative for its own package.
  *   same audience   the lens their class implies. A tutorial and an architecture document may
  *                   share every keyword and owe each other nothing, so nothing is ever
  *                   compared across lenses — and an unclassified document is never compared
@@ -58,7 +60,7 @@ import { vectorize, cosine, topTerms } from './similarity.js';
  */
 const TOPIC_THRESHOLD = 0.2;
 
-/** A name word shared by more than this share of the repository's documents says nothing. */
+/** A name word shared by more than this share of a pool's documents says nothing about it. */
 const COMMON_TERM_SHARE = 0.15;
 
 /** Classes whose job is to point at other documents rather than to own a subject. */
@@ -105,14 +107,6 @@ export function competing({ docs, minSize = 2, limit = 20 }) {
   const current = (docs || []).filter(isCurrent);
   const declared = declaredPairs(current);
 
-  // A word in half the repository's titles carries no information about what a document
-  // covers. On this project's own documentation, "docgov" clustered the changelog with the
-  // roadmap and the feasibility study with the vision — all it established was the name of
-  // the project. tf-idf already does this for bodies; names needed it too.
-  const df = new Map();
-  for (const d of current) for (const t of topicsOf(d).topics) df.set(t, (df.get(t) || 0) + 1);
-  const tooCommon = new Set([...df].filter(([, n]) => n > Math.max(2, current.length * COMMON_TERM_SHARE)).map(([t]) => t));
-
   // A directory with an index has already been organised: the index says these belong
   // together. The six parts of this project's own PRD are exactly that, and reporting them as
   // competing sources of truth would be reporting a deliberate structure as a defect.
@@ -132,7 +126,7 @@ export function competing({ docs, minSize = 2, limit = 20 }) {
     if (indexed.has(d.path.split('/').slice(0, -1).join('/'))) continue;
     const { lens, topics } = topicsOf(d);
     if (!byLens.has(lens)) byLens.set(lens, []);
-    byLens.get(lens).push({ doc: d, topics: new Set([...topics].filter((t) => !tooCommon.has(t))) });
+    byLens.get(lens).push({ doc: d, topics });
   }
 
   const groups = [];
@@ -140,7 +134,24 @@ export function competing({ docs, minSize = 2, limit = 20 }) {
     if (members.length < minSize) continue;
     const vecs = vectorize(members.map((m) => m.doc));
 
+    // A word most of this pool shares carries no information about what any one of them
+    // covers. On this project's own documentation "docgov" clustered the changelog with the
+    // roadmap and the feasibility study with the vision, establishing only the name of the
+    // project. tf-idf already does this for bodies; names needed it too.
+    //
+    // Counted within the pool rather than across the repository, because a word that is
+    // everywhere in a repository may be the distinguishing word inside one package — and on
+    // a small pool a repository-wide count filtered away every term there was.
+    const df = new Map();
+    for (const m of members) for (const t of m.topics) df.set(t, (df.get(t) || 0) + 1);
+    const floor = Math.max(2, members.length * COMMON_TERM_SHARE);
+    const distinctive = (m) => new Set([...m.topics].filter((t) => df.get(t) <= floor));
+    for (const m of members) m.topics = distinctive(m);
+
     const about = (a, b) => {
+      // Two packages each having a setup guide is not a duplicate: each governs its own
+      // package, and nothing about one is a second source of truth for the other.
+      if ((a.doc.scope ?? null) !== (b.doc.scope ?? null)) return false;
       if (declared.has(pairKey(a.doc.path, b.doc.path))) return false;  // already decided
       // Both, not either. The name says what the document claims to be about; the body
       // corroborates that it actually is. See COMMON_TERM_SHARE for why either alone fails.

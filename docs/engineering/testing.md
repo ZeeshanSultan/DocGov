@@ -145,6 +145,9 @@ commit real files, and run the real binary as a subprocess.
 - **That a guard does not break the repositories that predate it.** A fix plan with no
   fingerprint, as every earlier adopter holds, must still run. A compatibility guarantee with
   no test is a compatibility hope.
+- **A scope, from both sides.** Package documents must stay in their package, *and* a nested
+  `docs/guides/README.md` must still be a directory index rather than a project README. Scoping
+  that only loosens is how every nested README in a repository becomes a second front page.
 - **Both sides of a refusal.** `create` refusing a competing document is only worth having if
   it refuses the right ones, so the tests assert the false-positive side as hard as the true
   one: a narrower name is reported and still written, an unrelated name is written silently,

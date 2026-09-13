@@ -233,6 +233,30 @@ test('classifier: files other tools locate by path are never relocated by layout
   assert.equal(new Set(dests).size, 3, 'three agent files, three distinct destinations');
 });
 
+test('classifier: prose alone never makes a classification trustworthy', () => {
+  // Where a document sits is a decision somebody made; a regex matching its prose is a
+  // guess. Scoring both on one scale made a correct path match and a bad prose match
+  // indistinguishable — a branching model read as a runbook, at the same confidence as a
+  // genuine getting-started page.
+  const prose = '# Branching model\n\nOn a SEV-1 we escalate to the on-call pager rota.\n';
+  const byProse = classify({ path: 'docs/content/en/contributing/branching-model.md', body: prose, frontmatter: {} });
+  assert.ok(byProse.needsReview, 'a content match alone must not be trusted');
+
+  const byPath = classify({ path: 'docs/content/en/getting_started/installation.md', body: '# Install\n\nRun it.\n', frontmatter: {} });
+  assert.equal(byPath.type, 'user.getting-started');
+  assert.ok(!byPath.needsReview, 'a documentation layout somebody chose is evidence');
+});
+
+test('classifier: a lone candidate is not a close call', () => {
+  // Gap was measured against a rival that did not exist, so an unrivalled classification
+  // scoring 11 was reported as contested against nothing. Weak evidence is the structural
+  // floor's job; ambiguity needs two candidates.
+  const r = classify({ path: 'docs/runbooks/oncall.md', body: '# On-call\n\nSteps.\n', frontmatter: {} });
+  assert.equal(r.type, 'operations.runbook');
+  assert.ok(r.candidates.length >= 1);
+  if (r.candidates.length === 1) assert.ok(!r.needsReview, 'nothing competes with it');
+});
+
 test('classifier: a misplaced singleton is still classified, not left unknown', () => {
   // Deleting off-canonical singletons left nothing to report: `docs/CODE_OF_CONDUCT.md`
   // came back `unknown` / "no signal matched", when being in the wrong place is precisely

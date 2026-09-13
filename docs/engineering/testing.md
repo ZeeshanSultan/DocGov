@@ -44,6 +44,10 @@ commit real files, and run the real binary as a subprocess.
 - **Every template against its own gate.** The test *every document class produces a document
   that satisfies its own gate* is what keeps 59 classes honest — adding a class with mismatched
   sections fails immediately.
+- **Signals that must not over-match.** That a hyphenated dependency name in a licence
+  table (`memory-pager`) does not read as an on-call runbook, while a real runbook still
+  does. `\b` treats a hyphen as a word boundary, which is how a third-party notices file
+  was classified as operations documentation.
 - **The paths other tools hard-code.** That no layout relocates README, CONTRIBUTING,
   CODE_OF_CONDUCT, SECURITY, SUPPORT, CLAUDE.md, AGENTS.md or GEMINI.md, and that the agent
   files resolve to three distinct destinations rather than collapsing onto CLAUDE.md. Each of

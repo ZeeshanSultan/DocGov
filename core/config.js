@@ -55,8 +55,14 @@ export function defaults() {
       include: ['**/*.md', '**/*.mdx'],
       // Agent infrastructure is instructions, not documentation. Governing it would
       // make DocGov police the files that configure DocGov.
+      // GitHub accepts these template names in either case, and they are configuration
+      // it renders into a new issue or pull request — not documentation. Governing them
+      // would put a `docgov:` block at the top of every PR description.
       exclude: ['.claude/**', '.docgov/**', '**/node_modules/**', '**/SKILL.md',
-        '.github/ISSUE_TEMPLATE/**', '**/PULL_REQUEST_TEMPLATE.md', '**/CHANGELOG_UNRELEASED.md'],
+        '.github/ISSUE_TEMPLATE/**', '.github/issue_template/**',
+        '**/PULL_REQUEST_TEMPLATE.md', '**/pull_request_template.md',
+        '**/ISSUE_TEMPLATE.md', '**/issue_template.md',
+        '**/CHANGELOG_UNRELEASED.md'],
       // Documents governed from here instead of from frontmatter in the file. GitHub renders
       // YAML frontmatter in Markdown as a table, so the files it surfaces on a project's
       // front page — README, CONTRIBUTING, SECURITY, CHANGELOG — should not carry any.

@@ -56,8 +56,18 @@ export function brokenLinks(docs, root, allFiles) {
   for (const d of docs) {
     for (const target of d.links().internal) {
       if (target === '' || target.startsWith('mailto:')) continue;
+      const resolved = resolveLink(d.path, target);
+      // A target that climbs out of the repository is not an internal link, so it is
+      // not this function's to judge — there is nothing on disk to check it against.
+      // GitHub resolves such a link against the repository URL rather than the
+      // filesystem, which is how the private-vulnerability-reporting link that GitHub
+      // itself documents is written: `[report](../../security/advisories/new)` in a
+      // root SECURITY.md means github.com/<owner>/<repo>/security/advisories/new.
+      // Reporting it as a missing file was wrong twice over: wrong about the target,
+      // and wrong about it being internal at all.
+      if (resolved.startsWith('..')) continue;
       if (resolves(d.path, target)) continue;
-      out.push({ path: d.path, target, resolved: resolveLink(d.path, target) });
+      out.push({ path: d.path, target, resolved });
     }
   }
   return out;

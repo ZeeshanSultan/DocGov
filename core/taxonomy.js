@@ -213,7 +213,7 @@ export const TYPES = {
   },
   'security.public-model': {
     label: 'Public Security Model', authority: 'audience', lens: 'security',
-    full: 'docs/11-external/security.md', compact: 'SECURITY.md', soft: 200, hard: 400,
+    full: 'SECURITY.md', compact: 'SECURITY.md', singleton: true, soft: 200, hard: 400,
     quality: 90, visibility: 'public', template: 'tier6/security-public',
     sections: ['Reporting a vulnerability', 'Supported versions', 'What we protect', 'Scope'],
   },
@@ -380,7 +380,7 @@ export const TYPES = {
   },
   'governance.support': {
     label: 'Support Policy', authority: 'audience', lens: 'user',
-    full: 'docs/09-governance/support/', compact: 'SUPPORT.md', soft: 200, hard: 400,
+    full: 'SUPPORT.md', compact: 'SUPPORT.md', singleton: true, soft: 200, hard: 400,
     quality: 80, visibility: 'public', template: 'tier6/support',
     sections: ['Where to get help', 'Response expectations', 'What is out of scope'],
   },
@@ -427,8 +427,12 @@ export const TYPES = {
     visibility: 'internal', frozen: true, sections: [],
   },
   'agent.instructions': {
+    // Not one file: CLAUDE.md, AGENTS.md, GEMINI.md, .cursorrules and
+    // .github/copilot-instructions.md are each read by a different harness, from a path
+    // that harness hard-codes. Treating the class as a singleton at CLAUDE.md gave every
+    // one of them CLAUDE.md as its destination, which is a collision, not a move.
     label: 'Agent Instructions', authority: 'canonical', lens: 'agent',
-    full: 'CLAUDE.md', compact: 'CLAUDE.md', soft: 300, hard: 500, quality: 85,
+    full: 'CLAUDE.md', compact: 'CLAUDE.md', anchored: true, soft: 300, hard: 500, quality: 85,
     visibility: 'internal', template: 'tier2/agent-instructions',
     sections: [],
   },

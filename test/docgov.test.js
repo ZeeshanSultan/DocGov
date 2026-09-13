@@ -185,6 +185,42 @@ test('classifier: a singleton class only wins at its canonical path', () => {
     'docs/guides/README.md', 'an index belongs to its own directory and must never be relocated');
 });
 
+test('classifier: files other tools locate by path are never relocated by layout', () => {
+  // GitHub reads README, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY and SUPPORT from the
+  // repository root; Claude Code reads CLAUDE.md, Gemini CLI GEMINI.md, Copilot
+  // .github/copilot-instructions.md. Moving any of them is a silent breakage, not a
+  // tidy-up: `full` layout used to send SECURITY.md to docs/11-external/security.md and
+  // SUPPORT.md into docs/09-governance/, where GitHub stops finding either.
+  const body = '# T\n\n## Install\n\n## Usage\n';
+  const rooted = ['README.md', 'CONTRIBUTING.md', 'CODE_OF_CONDUCT.md', 'SECURITY.md',
+    'SUPPORT.md', 'CHANGELOG.md', 'CLAUDE.md', 'AGENTS.md', 'GEMINI.md',
+    '.github/copilot-instructions.md'];
+  for (const layout of ['full', 'compact']) {
+    for (const f of rooted) {
+      const { type } = classify({ path: f, body, frontmatter: {} });
+      assert.equal(destinationFor({ project: { layout } }, type, f), f,
+        `${f} must not move in ${layout} layout`);
+    }
+  }
+  // and the agent files must not all collapse onto CLAUDE.md, which would be a collision
+  const dests = ['CLAUDE.md', 'AGENTS.md', 'GEMINI.md'].map((f) =>
+    destinationFor({ project: { layout: 'full' } }, classify({ path: f, body, frontmatter: {} }).type, f));
+  assert.equal(new Set(dests).size, 3, 'three agent files, three distinct destinations');
+});
+
+test('classifier: a misplaced singleton is still classified, not left unknown', () => {
+  // Deleting off-canonical singletons left nothing to report: `docs/CODE_OF_CONDUCT.md`
+  // came back `unknown` / "no signal matched", when being in the wrong place is precisely
+  // what should have been said about it.
+  const body = '# Code of conduct\n\nBe decent.\n';
+  const off = classify({ path: 'docs/CODE_OF_CONDUCT.md', body, frontmatter: {} });
+  assert.equal(off.type, 'governance.code-of-conduct');
+  assert.ok(off.needsReview, 'low confidence off its canonical path');
+  assert.ok(off.signals.some((w) => w.includes('canonical path')), 'it must say why');
+  const at = classify({ path: 'CODE_OF_CONDUCT.md', body, frontmatter: {} });
+  assert.ok(at.confidence > off.confidence, 'the canonical location must still win outright');
+});
+
 test('check: a plugin repository does not govern its own components', async () => {
   const cfgm = await import('../core/config.js');
   const dir = tmpRepo();
@@ -308,10 +344,56 @@ test('links: external, anchor and mailto targets are never rewritten', () => {
   assert.equal(rewriteLinks(src, 'docs/a.md', 'other/a.md', new Map([['docs/z.md', 'q/z.md']])), src);
 });
 
+test('links: a destination may contain balanced parens or be angle-bracketed', () => {
+  // Next.js route groups put parentheses in real paths. Stopping at the first `)`
+  // truncated the destination and then reported the truncation as a broken link.
+  const body = '[a](../ui_new/src/app/(dashboard)/billy/) [b](./plain.md) '
+    + '[c](<spaced path.md>) [d](https://x.test/a(b))';
+  const d = new Document('/tmp', 'docs/x.md', `# T\n\n${body}\n`);
+  const l = d.links();
+  assert.deepEqual(l.internal, ['../ui_new/src/app/(dashboard)/billy/', './plain.md', 'spaced path.md']);
+  assert.deepEqual(l.external, ['https://x.test/a(b)']);
+});
+
 test('links: broken internal links are detected, valid ones are not', () => {
   const d = new Document('/tmp', 'docs/a.md', '# A\n\n[ok](b.md) [bad](missing.md) [ext](https://x.test)\n');
   const broken = brokenLinks([d], '/tmp', new Set(['docs/a.md', 'docs/b.md']));
   assert.deepEqual(broken.map((b) => b.target), ['missing.md']);
+});
+
+test('links: a link to a directory, a dotfile or a source file is not broken', () => {
+  // The inventory set holds tracked *files* only — no directories, and not every
+  // dotfile or source file. Trusting it alone reported 306 valid links as broken on a
+  // real repository, 287 of them plain links to directories.
+  const dir = tmpRepo();
+  fs.mkdirSync(path.join(dir, 'core', 'coverage'), { recursive: true });
+  wf(dir, 'core/coverage/gate.go', 'package coverage\n');
+  wf(dir, '.golangci.yml', 'run: {}\n');
+  const body = '# A\n\n[d](../core/) [dot](../.golangci.yml) [src](../core/coverage/gate.go) '
+    + '[line](../core/coverage/gate.go:43) [gone](../core/nope.go)\n';
+  wf(dir, 'docs/a.md', body);
+  const d = new Document(dir, 'docs/a.md', body);
+  // the fast-path set deliberately knows about none of them
+  const broken = brokenLinks([d], dir, new Set(['docs/a.md']));
+  assert.deepEqual(broken.map((b) => b.target), ['../core/nope.go'],
+    'only the target that genuinely does not exist may be reported');
+});
+
+test('links: permalink and repo-root conventions resolve, genuinely missing ones do not', () => {
+  // Measured on a 1,045-document repository: checking only the document-relative path
+  // reported 1,304 broken links, of which 277 were real.
+  const dir = tmpRepo();
+  fs.mkdirSync(path.join(dir, 'site', 'errors'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'core', 'malware'), { recursive: true });
+  wf(dir, 'site/errors/CHW-1001.md', '# 1001\n');
+  wf(dir, 'core/malware/index.go', 'package malware\n');
+  const body = '# I\n\n[permalink](./CHW-1001/) [root](core/malware/index.go) '
+    + '[rootline](core/malware/index.go:664) [gone](./CHW-9999/)\n';
+  wf(dir, 'site/errors/_index.md', body);
+  const d = new Document(dir, 'site/errors/_index.md', body);
+  const broken = brokenLinks([d], dir, new Set(['site/errors/_index.md']));
+  assert.deepEqual(broken.map((b) => b.target), ['./CHW-9999/'],
+    'only the permalink with no backing document may be reported');
 });
 
 // ───────────────────────────── size ─────────────────────────────

@@ -42,8 +42,12 @@ commit real files, and run the real binary as a subprocess.
 - **The hook protocol as a subprocess.** Denials, context injection, silence on ungoverned
   paths, and failing open on a malformed payload.
 - **Every template against its own gate.** The test *every document class produces a document
-  that satisfies its own gate* is what keeps 57 classes honest — adding a class with mismatched
+  that satisfies its own gate* is what keeps 59 classes honest — adding a class with mismatched
   sections fails immediately.
+- **Output that must survive a pipe.** `types --json` is larger than the 8 KB pipe buffer, and
+  the test asserts both that it exceeds it and that it still parses. This guards a real bug:
+  the CLI called `process.exit()`, which discards unflushed asynchronous writes, so on Node 20
+  every `--json` payload over 8 KB arrived truncated mid-string.
 - **Parsers at their edges.** YAML round-trip identity, refusal of unsupported constructs,
   headings inside code fences, ordinal-prefixed headings.
 - **Path predicates, in both directions.** That the mapping predicate is broad enough to
@@ -74,8 +78,13 @@ snapshots. The test file is readable top to bottom and every helper is in it.
 
 ```bash
 npm test
-node --test --test-name-pattern='migrate' test/*.test.js
+node --test --test-name-pattern='fix' test/*.test.js
 ```
+
+CI runs the suite on Node 20 and Node 22, because `package.json` declares `>=20` and an
+untested lower bound is a guess. That matrix is a separate job from the governance job, which
+comments on the pull request — two matrix runs would race the same `gh pr comment --edit-last`.
+It earned its place immediately: the pipe-truncation bug above reproduced only on 20.
 
 ## Gates
 

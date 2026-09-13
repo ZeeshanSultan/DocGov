@@ -17,7 +17,7 @@
 version: 1
 
 project:
-  # Note: `docgov init` always writes a mode into the repository's own config, so this
+  # Note: `docgov setup` always writes a mode into the repository's own config, so this
   # only takes effect where a repository has deliberately removed it. To make a mode
   # mandatory, check it in CI rather than hoping the merge order enforces it:
   #   test "$(docgov check --json | jq -r .stats.blocking)" != "null"

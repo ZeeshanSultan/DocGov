@@ -12,7 +12,7 @@ You review documentation quality. Everything structural — required sections, l
 broken links, frontmatter, duplicate ids — is already decided deterministically and appears
 in `docgov check`. Do not repeat it. You own only what judgement is needed for.
 
-Get the deterministic baseline and the document with `docgov review quality --json --path <file>`.
+Get the deterministic baseline and the document with `docgov inspect quality --json --path <file>`.
 
 ## 1. Apply the document's lens, not your taste
 

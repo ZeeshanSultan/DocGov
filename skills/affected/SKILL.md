@@ -1,5 +1,5 @@
 ---
-name: impact
+name: affected
 description: Analyze which documents a code change affects and produce the documentation change manifest — required updates, optional updates, and the PR-ready review comment. Use before committing, when opening a PR, or for "what docs do I need to update".
 allowed-tools: Bash(docgov *) Bash(git diff*) Bash(git status*) Read Write Edit
 argument-hint: "[--base main]"
@@ -9,7 +9,7 @@ argument-hint: "[--base main]"
 
 ## Impact and manifest
 
-!`docgov impact --json --compact $ARGUMENTS 2>&1 | head -c 10000`
+!`docgov affected --json --compact $ARGUMENTS 2>&1 | head -c 10000`
 
 ## What to do
 
@@ -20,11 +20,11 @@ argument-hint: "[--base main]"
 2. **Update them.** For each, read the document, find the part the change invalidates, and
    make the minimal correct edit. Do not rewrite a document because one sentence is wrong.
 
-3. **Write the manifest** with `docgov manifest`. It lands in `.docgov/manifest.yaml` as a
+3. **Write the manifest** with `docgov checklist`. It lands in `.docgov/checklist.yaml` as a
    deterministic checklist that survives across sessions and CI — and is deleted after
    merge. Use it rather than holding the list in your head.
 
-4. **For a PR,** run `docgov manifest --pr` and post the output as a comment. It states the
+4. **For a PR,** run `docgov checklist --pr` and post the output as a comment. It states the
    code impact, the documentation impact, what is covered and what is outstanding.
 
 5. **If a required document genuinely does not need updating,** say why, explicitly, in the

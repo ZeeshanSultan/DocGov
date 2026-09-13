@@ -37,9 +37,16 @@ documentation:
       visibility: public
       status: active
       owner: docgov
+    CODE_OF_CONDUCT.md:
+      id: code-of-conduct
+      type: governance.code-of-conduct
+      authority: audience
+      visibility: public
+      status: active
+      owner: docgov
     CHANGELOG.md:
       id: changelog
-      type: release.notes
+      type: release.changelog
       authority: historical
       visibility: public
       status: active
@@ -51,7 +58,7 @@ documentation:
     - "**/SKILL.md"
     - "templates/**"
     - "lenses/**"
-    - "rules/**"
+    - "policy/**"
 governance:
   canonical_changes_require_review: false
   prevent_duplicate_domains: true

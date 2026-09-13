@@ -6,6 +6,7 @@ import { rewriteLinks } from './links.js';
 import { frontmatterFor } from './templates.js';
 import { read, write, exists, DocGovError, EXIT } from './util.js';
 import { classify } from './classify.js';
+import { PLAN_DATA_PATH } from './onboard.js';
 
 /**
  * Transactional migration (PRD §41).
@@ -51,7 +52,7 @@ export function migrate({ root, cfg, docs, planData, dryRun = false, include = [
   const dests = new Map();
   for (const [from, to] of moves) {
     if (dests.has(to)) throw new DocGovError(
-      `migration would put two documents at ${to} (${dests.get(to)} and ${from}). Edit ${'.docgov/onboarding-plan.json'} to disambiguate.`);
+      `migration would put two documents at ${to} (${dests.get(to)} and ${from}). Edit ${PLAN_DATA_PATH} to disambiguate.`);
     if (exists(path.join(root, to)) && !moves.has(to)) throw new DocGovError(
       `migration destination ${to} already exists and is not itself being moved.`);
     dests.set(to, from);

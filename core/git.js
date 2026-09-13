@@ -18,7 +18,7 @@ export function isRepo(root) { return exists(path.join(root, '.git')); }
 /**
  * Is the tree clean enough to migrate?
  *
- * DocGov's own state under .docgov/ does not count: `onboard` writes the plan that
+ * DocGov's own state under .docgov/ does not count: `review` writes the plan that
  * `migrate` then executes, so counting it would make the two commands mutually
  * exclusive. Everything else must be committed, because that is what makes a
  * migration revertible.
@@ -88,7 +88,7 @@ export function lastCommitDate(root, relPath) {
   return d || null;
 }
 
-/** Primary author of a path, as an owner hint for `docgov onboard`. */
+/** Primary author of a path, as an owner hint for `docgov review`. */
 export function primaryAuthor(root, relPath) {
   const out = git(root, ['shortlog', '-sne', 'HEAD', '--', relPath], { allowFail: true });
   const first = out.split('\n').filter(Boolean)[0];

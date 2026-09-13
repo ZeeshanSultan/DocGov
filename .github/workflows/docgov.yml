@@ -10,6 +10,25 @@ permissions:
   pull-requests: write
 
 jobs:
+  # package.json declares node >=20, so 20 is tested as well as current. This job is
+  # separate from `docgov` below because that one comments on the PR, and a matrix
+  # would race two runs against the same `gh pr comment --edit-last`.
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    name: Engine tests (node ${{ matrix.node }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - run: npm test
+
   docgov:
     runs-on: ubuntu-latest
     steps:
@@ -20,9 +39,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-
-      - name: Engine tests
-        run: npm test
 
       # Exit 1 is a deterministic violation and fails the build.
       # Exit 2 is drift needing review: surfaced, not failed. Change that here if you
@@ -35,11 +51,11 @@ jobs:
           echo "docgov check exited $code"
           test "$code" -ne 1
 
-      - name: Drift and impact
+      - name: Stale and affected docs
         if: github.event_name == 'pull_request'
         run: |
-          ./bin/docgov drift --base "origin/${{ github.base_ref }}" || true
-          ./bin/docgov manifest --pr --base "origin/${{ github.base_ref }}" > docgov-report.txt || true
+          ./bin/docgov stale --base "origin/${{ github.base_ref }}" || true
+          ./bin/docgov checklist --pr --base "origin/${{ github.base_ref }}" > docgov-report.txt || true
           cat docgov-report.txt
 
       - name: Post the documentation review

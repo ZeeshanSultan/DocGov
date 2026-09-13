@@ -10,15 +10,15 @@ import { similarPairs } from './similarity.js';
 import { parse as fmParse } from './frontmatter.js';
 
 /**
- * The deterministic rule engine (PRD §21).
+ * The deterministic check engine (PRD §21).
  *
- * Every rule here is decidable by software. Nothing in this file asks a model a
+ * Every check here is decidable by software. Nothing in this file asks a model a
  * question, which is exactly why it is allowed to fail CI. Subjective findings
  * live in the agent layer and are advisory by construction.
  */
 
-/** rule id -> {severity, deterministic, blurb} */
-export const RULES = {
+/** check id -> {severity, deterministic, blurb} */
+export const CHECKS = {
   'invalid-yaml':        { severity: 'critical', blurb: 'frontmatter is not parseable' },
   'missing-frontmatter': { severity: 'high',     blurb: 'no docgov frontmatter block' },
   'missing-id':          { severity: 'high',     blurb: 'docgov.id is absent' },
@@ -50,7 +50,7 @@ export const RULES = {
   'expired-suppression': { severity: 'medium',   blurb: 'a suppression has expired and is no longer in effect' },
 };
 
-for (const r of Object.values(RULES)) r.deterministic = true;
+for (const r of Object.values(CHECKS)) r.deterministic = true;
 
 /**
  * @param {{root:string, cfg:object, docs:any[], registry:object, graph:any,
@@ -61,16 +61,16 @@ export function run({ root, cfg, docs, registry, graph, inv, only = null }) {
   const findings = [];
   const allFiles = new Set(inv.all);
   const scope = only ? docs.filter((d) => only.includes(d.path)) : docs;
-  const add = (rule, doc, message, extra = {}) => {
-    const meta = RULES[rule] || { severity: 'medium', blurb: rule };
+  const add = (check, doc, message, extra = {}) => {
+    const meta = CHECKS[check] || { severity: 'medium', blurb: check };
     findings.push({
-      rule, severity: extra.severity || meta.severity, path: doc?.path ?? extra.path ?? '(repository)',
+      check, severity: extra.severity || meta.severity, path: doc?.path ?? extra.path ?? '(repository)',
       id: doc?.id ?? extra.id ?? null, message, deterministic: true,
-      blocking: blocks(cfg, rule), fix: extra.fix || null, ...extra,
+      blocking: blocks(cfg, check), fix: extra.fix || null, ...extra,
     });
   };
 
-  // ---- per-document rules
+  // ---- per-document checks
   for (const d of scope) {
     if (d.error) { add('invalid-yaml', d, d.error); continue; }
 
@@ -79,7 +79,7 @@ export function run({ root, cfg, docs, registry, graph, inv, only = null }) {
 
     if ((!d.hasFrontmatter || !d.frontmatter.docgov) && !d.externallyRegistered) {
       add('missing-frontmatter', d, 'no `docgov:` frontmatter block',
-        { fix: `docgov organize --apply --path ${d.path}`
+        { fix: `docgov tag --apply --path ${d.path}`
           + ` — or, for a file GitHub renders, register it under documentation.registrations` });
     } else {
       if (!d.meta.id) add('missing-id', d, 'docgov.id is required');
@@ -115,7 +115,7 @@ export function run({ root, cfg, docs, registry, graph, inv, only = null }) {
       const want = locationFor(cfg, d.type);
       const ok = want.endsWith('/') ? d.path.startsWith(want) : d.path === want;
       if (!ok) add('wrong-location', d, `a ${typeDef(d.type).label} belongs in ${want}`,
-        { fix: `docgov organize --apply`, destination: destinationFor(cfg, d.type, d.path) });
+        { fix: `docgov tag --apply`, destination: destinationFor(cfg, d.type, d.path) });
     }
 
     // Visibility paths (PRD §10)
@@ -145,7 +145,7 @@ export function run({ root, cfg, docs, registry, graph, inv, only = null }) {
     if (inArchive && !only) { /* archived documents are frozen; edits are caught at write time */ }
   }
 
-  // ---- repository-wide rules
+  // ---- repository-wide checks
   const seenIds = new Map();
   for (const d of docs) {
     if (!d.meta.id) continue;
@@ -194,7 +194,7 @@ export function run({ root, cfg, docs, registry, graph, inv, only = null }) {
   if (rootDocs.length > (cfg.governance.max_new_root_docs ?? 0)) {
     for (const d of rootDocs) {
       add('new-root-document', d, 'top-level Markdown outside the taxonomy',
-        { fix: `docgov organize --apply --path ${d.path}` });
+        { fix: `docgov tag --apply --path ${d.path}` });
     }
   }
 
@@ -208,15 +208,15 @@ export function sortFindings(findings) {
     Number(b.blocking) - Number(a.blocking) ||
     S.indexOf(a.severity) - S.indexOf(b.severity) ||
     String(a.path).localeCompare(String(b.path)) ||
-    a.rule.localeCompare(b.rule));
+    a.check.localeCompare(b.check));
 }
 
 export function summarize(findings) {
-  const s = { total: findings.length, blocking: 0, critical: 0, high: 0, medium: 0, low: 0, byRule: {} };
+  const s = { total: findings.length, blocking: 0, critical: 0, high: 0, medium: 0, low: 0, byCheck: {} };
   for (const f of findings) {
     s[f.severity] = (s[f.severity] || 0) + 1;
     if (f.blocking) s.blocking++;
-    s.byRule[f.rule] = (s.byRule[f.rule] || 0) + 1;
+    s.byCheck[f.check] = (s.byCheck[f.check] || 0) + 1;
   }
   return s;
 }
@@ -236,7 +236,7 @@ export function exitCode({ findings, driftFindings = [], cfg }) {
 /** Pre-write decision for the PreToolUse hook: ring 1 (FEASIBILITY §3.1). */
 export function preWrite({ cfg, relPath, registry, isNew, content }) {
   const reasons = [];
-  const deny = (rule, msg, fix) => reasons.push({ rule, message: msg, fix, blocking: blocks(cfg, rule) });
+  const deny = (check, msg, fix) => reasons.push({ check, message: msg, fix, blocking: blocks(cfg, check) });
 
   if (matchAny(relPath, cfg.generated_paths || []) && !cfg.generated.allow_manual_edit) {
     deny('generated-edit', `${relPath} sits in a generated tree; edit the source and regenerate instead`,
@@ -291,7 +291,7 @@ export function preWrite({ cfg, relPath, registry, isNew, content }) {
     const allowed = new Set(cfg.governance.allowed_root_docs || []);
     if (topLevel && !allowed.has(relPath)) {
       deny('new-root-document', `${relPath} would be a new top-level Markdown file`,
-        'run `docgov classify --path ' + relPath + '` to find where it belongs in the documentation tree');
+        'run `docgov whatis --path ' + relPath + '` to find where it belongs in the documentation tree');
     }
   }
   return reasons;

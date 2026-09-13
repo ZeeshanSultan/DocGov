@@ -7,7 +7,7 @@ export const CONFIG_PATH = '.docgov/config.yaml';
 
 /**
  * Enforcement profiles per project mode (PRD §9).
- * `block` lists rule ids that may fail a write or CI; everything else warns.
+ * `block` lists check ids that may fail a write or CI; everything else warns.
  * Over-enforcement is the product's main failure mode, so solo blocks almost nothing.
  */
 export const MODE_PROFILES = {
@@ -123,7 +123,7 @@ export function load(cwd = process.cwd()) {
   // would make DocGov police the skills, agents and templates that implement DocGov.
   if (exists(path.join(root, '.claude-plugin', 'plugin.json'))) {
     const payload = ['skills/**', 'agents/**', 'hooks/**', 'templates/**', 'lenses/**',
-      'rules/**', 'commands/**', 'output-styles/**', 'workflows/**'];
+      'rules/**', 'policy/**', 'commands/**', 'output-styles/**', 'workflows/**'];
     const ex = cfg.documentation.exclude || [];
     cfg.documentation.exclude = [...new Set([...ex, ...payload])];
   }
@@ -138,10 +138,10 @@ export function save(root, raw) {
   return write(path.join(root, CONFIG_PATH), yaml.stringify(raw));
 }
 
-/** Does this rule id block, given mode + warn_only? */
-export function blocks(cfg, ruleId) {
+/** Does this check id block, given mode + warn_only? */
+export function blocks(cfg, checkId) {
   if (cfg.governance.warn_only) return false;
-  return (cfg.governance.enforce || []).includes(ruleId);
+  return (cfg.governance.enforce || []).includes(checkId);
 }
 
 export function limitFor(cfg, type) {

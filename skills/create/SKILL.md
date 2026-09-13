@@ -16,7 +16,7 @@ argument-hint: "<type> \"<name>\" [--domain <domain>]"
 2. **Pick the class.** `docgov types` lists all 56. If the user said "write docs for X",
    decide which class X actually is rather than defaulting to a guide. Do not invent a class.
 
-3. **Load the authoritative context.** Run `docgov context <domain-or-topic>`. Read it
+3. **Load the authoritative context.** Run `docgov brief <domain-or-topic>`. Read it
    before writing. It carries the constitution, the canonical spec, the invariants in
    force and the machine contracts — the things your document must not contradict.
 
@@ -49,5 +49,5 @@ found to be related. It prints the required sections and the line limits.
 
 ## Finish
 
-Run `docgov check --path <new-file>` and fix what it reports. Then `docgov impact` to see
+Run `docgov check --path <new-file>` and fix what it reports. Then `docgov affected` to see
 whether creating this document obliges you to update anything else.

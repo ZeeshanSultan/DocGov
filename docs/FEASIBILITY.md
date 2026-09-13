@@ -43,8 +43,8 @@ Every PRD mechanism against the primitive that implements it.
 | §19 | Post-write validation | `PostToolUse` → `additionalContext` | **Works (advisory only).** Cannot undo a write |
 | §18 | Repo-wide agent doc policy | `.claude/rules/documentation.md` + `SessionStart` hook `additionalContext` | **Works.** `InstructionsLoaded` event confirms `.claude/rules/*.md` is a first-class load path |
 | §24 | Auto-inject invariants when relevant code is touched | `PreToolUse` on `Edit`/`Write`, `additionalContext` keyed off path→domain map | **Works. Highest-value feature, cheapest to build.** Pure deterministic lookup; the whole hook measures ~95 ms including node startup |
-| §33 | Context packs | Skill with `!`-prefix command injection: `` !`docgov context $1` `` | **Works, and is better than the PRD assumes.** Output is injected *before* Claude reads the skill — the pack costs its own tokens and nothing else |
-| §34 | 11 slash commands | 11 skills in `skills/`, namespaced `/docgov:drift` etc. | **Works** |
+| §33 | Context packs | Skill with `!`-prefix command injection: `` !`docgov brief $1` `` | **Works, and is better than the PRD assumes.** Output is injected *before* Claude reads the skill — the pack costs its own tokens and nothing else |
+| §34 | 11 slash commands | 11 skills in `skills/`, namespaced `/docgov:stale` etc. | **Works** |
 | §35 | 4 agents | `agents/*.md` with `tools:`/`model:` restriction | **Works.** Give classifier/quality reviewers `model: sonnet`, drift reviewer `opus` |
 | §36 | Local state `.docgov/` | Plain files in repo + `${CLAUDE_PLUGIN_DATA}` for cache | **Works** |
 | §37 | Config | `.docgov/config.yaml` + plugin `userConfig` for per-user overrides | **Works** |
@@ -80,7 +80,7 @@ single `.md` edit**. That makes Claude Code feel broken and bills Haiku calls fo
 |---|---|---|---|---|
 | 1 | every `.md` write | command hook, pure CLI | ~95 ms measured | yes |
 | 2 | new file, or file crossing a hard limit | `prompt` hook (Haiku) | ~2 s | yes, `continueOnBlock: true` |
-| 3 | `/docgov review`, pre-commit, CI | subagents | seconds–minutes | CI only |
+| 3 | `/docgov inspect`, pre-commit, CI | subagents | seconds–minutes | CI only |
 
 Ring 1 catches the things that actually matter and are deterministic: wrong location, missing/invalid
 frontmatter, duplicate `docgov.id`, edit to a generated file, visibility-path violation, forbidden
@@ -95,7 +95,7 @@ It fires after the write lands and has no veto. So "generated file manually modi
 ### 3.3 Hooks cannot call skills, tools, or slash commands
 
 Documented limitation: command hooks communicate via stdout/stderr/exit codes only. So the PRD's
-"Query DocGov classification" step inside a hook is a **CLI call** (`docgov classify --path <p>`), never a
+"Query DocGov classification" step inside a hook is a **CLI call** (`docgov whatis --path <p>`), never a
 skill invocation. This is the structural reason the core must be a binary.
 
 ### 3.4 Symbol-level forward drift is not deterministically achievable
@@ -181,7 +181,7 @@ docgov/                         one plugin, one artifact
 ├── templates/                 ~30
 ├── lenses/                    7
 ├── schemas/                   JSON Schema for editors + validation
-└── rules/documentation.md     installed into the target repo
+└── policy/documentation.md   installed into the target repo
 ```
 
 The split is load-bearing: `core/` is unit-testable and decides every blocking question; the LLM layer
@@ -228,4 +228,4 @@ verdict above is now exercised by a test or a command, not asserted:
 ---
 
 *Assessed and implemented 2026-09-13. This document is itself a Tier-2 decision artifact; it is
-classified by `docgov onboard` in its own repository, which was the first dogfood test.*
+classified by `docgov review` in its own repository, which was the first dogfood test.*

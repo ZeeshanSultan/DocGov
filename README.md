@@ -1,16 +1,48 @@
 # DocGov
 
-Documentation governance for agentic development. A Claude Code plugin plus a standalone CLI.
+**Your agent wrote 40 markdown files last week. How many of them are lies?**
 
-Documentation does not rot because people are lazy. It rots because a repository with many
-authors — most of them now agents — produces documentation faster than any review process
-can keep coherent. Different agents create duplicate documents, invent directory structures,
-contradict canonical specifications, update implementations without updating specifications,
-and leave obsolete documents behind.
+DocGov is the adult in the room for AI-written docs. It decides where files go, notices when
+two documents contradict each other, and tells you what went stale the moment you change code.
 
-DocGov puts a control plane around that. It knows which documents are authoritative, what
-class each document is, where it belongs, what it must contain, which code it describes, and
-what went stale when something changed.
+It's a Claude Code plugin and a standalone CLI. Node 20+, zero dependencies, nothing leaves
+your machine.
+
+## What it looks like
+
+You point it at a repo that's been vibe-coded for a few months:
+
+```
+$ docgov review
+
+DocGov review
+─────────────
+5 documents inventoried · 0 machine contracts · stack: none detected
+
+Finding                        Count
+-----------------------------  -----
+unclassified                   3
+moves proposed                 1
+frontmatter to add             5
+suspected duplicates           1
+missing documents              1
+broken internal links          0
+
+Plan written to .docgov/fix-plan.md — nothing has changed.
+4 of 11 actions need a judgement call.
+
+Read the plan, delete anything you disagree with, then: docgov fix --dry-run
+```
+
+That duplicate pair is two API docs at 91% overlap that disagree about whether tokens
+expire and whether charges retry three times or five. DocGov won't merge prose on its own —
+it narrows the candidates and hands them to you.
+
+**Try it on a repo that isn't yours:** `./examples/demo.sh` builds a deliberately messy
+repository and runs the whole flow against it. Real run, nothing pre-baked, about 30 seconds.
+
+Nothing moved. It wrote you a plan. You read it, delete the parts you disagree with, and run
+`docgov fix` — which works on a branch and reverts itself if anything fails to verify.
 
 ## Install
 
@@ -19,166 +51,93 @@ claude plugin marketplace add ZeeshanSultan/DocGov
 claude plugin install docgov
 ```
 
-Then in your repository:
+That gets you the hooks, which are the good part: your agent gets handed the rules before it
+edits governed code, and gets stopped before it writes a doc in the wrong place.
+
+Not using Claude Code? The CLI works on its own, and it's the same binary CI runs:
 
 ```bash
-/docgov:init        # establish governance
-/docgov:onboard     # for a repository that already has documentation
+npx docgov-cli setup
 ```
 
-The CLI works standalone too (`bin/docgov`, Node 20+, zero dependencies) — the same binary
-runs in CI, and on Windows via `bin/docgov.cmd`.
-
-What it runs on every edit, and what the one model-backed hook sends, is documented in
-[SECURITY.md](SECURITY.md). Nothing else leaves your machine.
-
-## The idea
-
-```
-Humans define intent.  Machine artifacts define facts.  Code implements behaviour.
-Git records history.   DocGov governs the relationships between them.
-```
-
-Two halves, and the split is load-bearing:
-
-- **A deterministic engine** decides everything that blocks. Is this id a duplicate? Is this
-  document in the right place? Did code change that a canonical specification claims to
-  describe? Software answers these, the same way in your editor and in CI, and it can always
-  show its reasoning.
-- **A Claude layer** decides everything subjective. Do these two documents actually
-  contradict each other? Should this be split? Does this prose still match the code? These
-  are reported for review and never enforced automatically.
-
-An LLM never decides whether `docgov.id` is duplicated. Software never decides whether your
-prose is clear.
-
-## What it does
-
-| | |
-|---|---|
-| **Taxonomy** | 56 document classes across 8 authority tiers, each with a canonical location, required sections, size limits and a review lens. Fully overridable. |
-| **Authority model** | `constitution > canonical > requirements > contract > code > generated > audience > historical`. A lower-authority document may not contradict a higher one, and violations are structural errors. |
-| **Documentation graph** | Typed relationships (`depends_on`, `implements`, `supersedes`, `documents`, …) with automatic inverses. Internal links become inferred edges, so the graph is useful on day one. |
-| **Invariant injection** | Write `INV-LIC-001 A license belongs to exactly one organization.` in a canonical document, map the code it governs, and every agent that later edits that code is handed the rule before it writes a line. The cheapest high-value feature in the product. |
-| **Drift detection** | Forward (code moved, docs did not), reverse (spec moved, code did not), contract, and dependency drift. Plus semantic staleness scored from what changed *around* a document, not from its age. |
-| **Impact analysis** | Which documents a change affects, which are required rather than optional, and a manifest an agent can work through and CI can verify. |
-| **Context packs** | `docgov context licensing` returns the minimum authoritative context for an area — constitution, canonical spec, invariants, ADRs, contracts. A skill injects it, so it is the only documentation an agent pays tokens for. |
-| **Safe migration** | Onboarding writes a plan and changes nothing. Migration runs on a branch, repairs every internal link in the same transaction, verifies the result, and reverts itself if verification fails. |
-| **Publishing gate** | Detects what would leak and produces external-lens rewrite briefs. An external document is a different artifact, not a redacted copy. Nothing is ever published automatically. |
-
-## Progressive enforcement
-
-A governance tool that blocks a README typo gets uninstalled. Enforcement runs in three rings:
-
-| Ring | When | Engine | Cost | Can block |
-|---|---|---|---|---|
-| 1 | every Markdown write | the CLI, no model | ~95 ms | yes |
-| 2 | a new document is written | one fast model call | ~2 s | yes, with self-correction |
-| 3 | `/docgov:review`, `/docgov:drift`, CI | subagents | seconds | CI only |
-
-Ring 1 blocks only what software can decide: duplicate ids, hand edits to generated trees,
-unparseable frontmatter, internal documents in public paths, archive edits. How much of that
-blocks depends on the project mode — `solo` blocks three rules, `enterprise` blocks twelve.
-
-Adopting DocGov on a repository that already has documentation starts in `warn_only`, so the
-first build after switching it on does not fail over documentation that predates it. `init`
-says so, and says when to turn it off.
-
-Files GitHub renders on your project's front page — README, CONTRIBUTING, SECURITY, CHANGELOG —
-are governed without frontmatter, via `documentation.registrations` in `.docgov/config.yaml`.
-GitHub renders YAML frontmatter as a table, and your README should open with your project, not
-with its metadata.
+(The package is `docgov-cli` because npm won't hand out `docgov`. The command you type is
+still `docgov`.)
 
 ## Usage
 
+Your first five minutes:
+
+```bash
+docgov setup     # turn it on. infers your project's shape, writes .docgov/config.yaml
+docgov review    # look at the docs you already have. writes a plan, changes nothing
+docgov fix       # run the plan, on a branch, reverting itself if verification fails
 ```
-docgov init | onboard | migrate              set up, understand, reorganize
-docgov types | classify | create | organize  author
-docgov check | drift | impact | manifest     govern
-docgov health | find | context | invariants  inspect
-docgov publish | suppress                    boundaries and exceptions
+
+Then, day to day:
+
+```bash
+docgov check     # did I just break a rule?
+docgov stale     # which docs did the code move out from under?
+docgov affected  # I changed this — what do I need to update?
+docgov health    # how bad is it, out of 100?
 ```
 
-Each is also a skill: `/docgov:onboard`, `/docgov:drift`, `/docgov:context licensing`, …
-Every command accepts `--json`.
+Every command takes `--json`. Full list: **[docs/reference/commands.md](docs/reference/commands.md)**.
 
-Exit codes: `0` pass · `1` deterministic violation · `2` review required · `3` configuration error.
+## What it actually does
 
-## Governing other agents
+| | |
+|---|---|
+| **Knows what a document is** | 59 document classes. Each one has a place it belongs, sections it must have, and a size past which it stops being that kind of document. Point it at a file and it'll tell you what you wrote. |
+| **Knows which docs outrank which** | Your spec beats the tutorial that paraphrases it. A README can't quietly contradict an ADR. When two documents disagree, there's a defined answer for which one is wrong. |
+| **Hands your agent the rules** | Write `INV-LIC-001 A license belongs to exactly one organization.` in a spec, map it to the code it governs, and every agent that touches that code gets the rule before it writes a line. Cheapest useful thing in here. |
+| **Notices when docs go stale** | Code moved and the doc didn't. Spec moved and the code didn't. Your OpenAPI file is ahead of the page describing it. Scored by what changed *around* a document, not by how old it is. |
+| **Tells you what to update** | You changed this file — here are the docs that need to change with it, split into required and optional, as a checklist your agent can work through and CI can check. |
+| **Packs context for agents** | `docgov brief billing` returns the minimum authoritative context for an area and nothing else. It's the only documentation your agent pays tokens for. |
+| **Won't let you leak** | Before anything goes public it flags what would leak and writes rewrite briefs. An external doc is a different artifact, not a redacted copy. Nothing publishes automatically. |
 
-`docgov init` installs `.claude/rules/documentation.md`, so every agent in the repository —
-not only DocGov's own skills — knows to check for an existing document before creating one,
-to apply the right template, to respect the authority hierarchy, and to run `docgov impact`
-after a material change.
+## How it decides things
 
-Hooks make that non-optional at the points that matter: a `SessionStart` briefing listing the
-authoritative documents, invariant injection before code edits, a deterministic gate before
-Markdown writes, and a `Stop` check for outstanding documentation obligations.
+Two halves, and the split is the whole design:
 
-## Interoperability
+**Software decides what blocks.** Is this id a duplicate? Is this file in the right place? Did
+code change that a spec claims to describe? Same answer in your editor and in CI, and it can
+always show its working.
 
-DocGov governs; it does not monopolize. `docgov capabilities` detects what is already
-installed — lychee, markdownlint, Vale, Spectral, oasdiff, diagram tools, MCP servers,
-local skills — and delegates to it, then validates the result. An absent capability simply
-means DocGov does the job itself.
+**A model decides what's subjective.** Do these two documents actually contradict each other?
+Should this be split? Is this prose still true? Reported for review, never enforced.
 
-It adopts established conventions rather than competing with them: [Diátaxis](https://diataxis.fr)
-for audience documentation, MADR for ADRs, OpenAPI and JSON Schema as authoritative contracts.
+> An LLM never decides whether `docgov.id` is duplicated. Software never decides whether your
+> prose is clear.
 
-## Design notes
-
-- **Zero dependencies.** Node 20+ stdlib only, including a strict YAML subset parser that
-  refuses constructs it cannot represent rather than guessing. The plugin works from a
-  `git clone` with no install step and no network.
-- **Local-first.** No telemetry, no network calls in the engine, repository-scoped state in
-  `.docgov/`. Publication always crosses a human gate.
-- **Git is the audit log.** DocGov reads `git diff`, `log` and `blame`; it does not maintain
-  a parallel history.
-- **Portable core.** `core/` has no Claude Code dependency, so the same engine can back
-  another agent harness.
+A governance tool that blocks a README typo gets uninstalled, so enforcement ramps: adopting
+DocGov on a repo that already has docs starts in warn-only, and `setup` tells you when to turn
+that off.
 
 ## Honest limits
 
-- **Symbol-level drift is not deterministic.** DocGov tells you, as a fact, that a document
-  claims to describe code that changed while the document did not. Whether the prose now
-  contradicts the code is a judgement, made by an agent, on the narrowed list — advisory,
-  never a hard gate. Claiming otherwise would be the fastest way to lose your trust.
-- **Quality scores are advisory by design.** A subjective judgement that fails a build is one
-  nobody can appeal.
-- **Migration requires git and a clean tree.** "Without losing information" is only a real
-  promise if every change is revertible.
-- **Capability discovery is filesystem probing**, not an API, so it will drift as the
-  ecosystem changes. Absence always degrades to "DocGov does it itself", never to a failure.
-- **Contradiction detection narrows, then asks.** Pairwise model comparison across a hundred
-  documents is ~5,000 comparisons; DocGov uses local tf-idf similarity to get to ~20 candidate
-  pairs first.
+- **Stale ≠ wrong.** DocGov tells you, as a fact, that a document claims to describe code that
+  changed while the document didn't. Whether the prose now *contradicts* the code is a
+  judgement call, made by an agent, and it's advisory. Claiming otherwise would be the fastest
+  way to lose your trust.
+- **Quality scores don't fail builds.** A subjective judgement that fails a build is one nobody
+  can appeal.
+- **`fix` needs git and a clean tree.** "Without losing anything" is only a real promise if
+  every change is revertible.
 
-## Repository
+## Where everything else is
 
-```
-bin/docgov        the engine and the hook protocol
-core/             deterministic: taxonomy, graph, classify, drift, impact, migrate, check
-skills/           11 skills — thin, they call the CLI and interpret
-agents/           classifier, architect, drift-reviewer, quality-reviewer
-hooks/            the three enforcement rings
-templates/        hand-authored scaffolds; the rest are synthesized from required sections
-lenses/           7 audience lenses
-schemas/          JSON Schema for frontmatter and config
-rules/            the agent documentation policy installed into your repository
-examples/         policy packs (organizational governance)
-```
+- **[docs/reference/commands.md](docs/reference/commands.md)** — every command, what it does, what it writes
+- [docs/architecture.md](docs/architecture.md) — how it's built
+- [SECURITY.md](SECURITY.md) — what the hooks run, and what never leaves your machine
+- [CONTRIBUTING.md](CONTRIBUTING.md) — the one architectural rule
+- [CHANGELOG.md](CHANGELOG.md) — what changed
+- [examples/policy-packs](examples/policy-packs/README.md) — governance across a whole organization
+- [Issues](https://github.com/ZeeshanSultan/DocGov/issues) — bugs, and especially false
+  positives. A rule that fires when it shouldn't is the bug that decides whether anyone trusts
+  this thing.
 
-Organizational governance lives in [examples/policy-packs](examples/policy-packs/README.md).
-
-`npm test` runs 60 tests over the engine, including drift, migration, policy packs and the hook protocol
-against real temporary git repositories.
-
-## Licence
+`npm test` runs 63 tests against real temporary git repos. DocGov governs its own repository,
+so `docgov check --all` here is a real end-to-end test.
 
 [MIT](LICENSE).
-
-- [CONTRIBUTING.md](CONTRIBUTING.md) — the one architectural rule, and how to add a rule or a document class
-- [SECURITY.md](SECURITY.md) — what the hooks execute, and what does not leave your machine
-- [CHANGELOG.md](CHANGELOG.md) — what changed
-- [docs/product/PRD.md](docs/product/PRD.md) — the full product specification
-- [docs/FEASIBILITY.md](docs/FEASIBILITY.md) — how it maps onto Claude Code primitives, and what does not work as specified

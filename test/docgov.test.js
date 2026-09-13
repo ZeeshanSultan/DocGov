@@ -219,11 +219,11 @@ test('documents can be governed from config instead of frontmatter', () => {
   assert.ok(!d.source.startsWith('---'), 'the file itself must stay free of frontmatter');
 
   const { findings } = check.run(s);
-  assert.ok(!findings.some((f) => f.path === 'README.md' && f.rule === 'missing-frontmatter'),
+  assert.ok(!findings.some((f) => f.path === 'README.md' && f.check === 'missing-frontmatter'),
     'an externally registered document is registered, not missing its frontmatter');
 
   // ...and `organize --apply` must not write a block into it.
-  const r = cli(dir, ['organize', '--apply', '--json']);
+  const r = cli(dir, ['tag', '--apply', '--json']);
   assert.equal(fs.readFileSync(path.join(dir, 'README.md'), 'utf8').startsWith('---'), false, r.out);
 });
 
@@ -353,7 +353,7 @@ test('preWrite: blocks a hand edit to a generated tree', () => {
   const { cfg } = cfgmod.load(ROOT);
   const r = check.preWrite({ cfg, relPath: 'docs/90-generated/api.md', registry: { documents: {} }, isNew: false, content: '# x' });
   assert.equal(r.length, 1);
-  assert.equal(r[0].rule, 'generated-edit');
+  assert.equal(r[0].check, 'generated-edit');
   assert.ok(r[0].blocking, 'generated-edit blocks in every mode');
 });
 
@@ -361,7 +361,7 @@ test('preWrite: blocks a duplicate id and says which document owns it', () => {
   const { cfg } = cfgmod.load(ROOT);
   const registry = { documents: { taken: { path: 'docs/a.md' } } };
   const r = check.preWrite({ cfg, relPath: 'docs/b.md', registry, isNew: true, content: '---\ndocgov:\n  id: taken\n---\n# b\n' });
-  const dup = r.find((x) => x.rule === 'duplicate-id');
+  const dup = r.find((x) => x.check === 'duplicate-id');
   assert.ok(dup && dup.blocking);
   assert.match(dup.message, /docs\/a\.md/);
 });
@@ -371,7 +371,7 @@ test('preWrite: blocks an internal document written into a public path', () => {
   cfg.governance.enforce = ['visibility-path'];
   const r = check.preWrite({ cfg, relPath: 'docs/11-external/leak.md', registry: { documents: {} }, isNew: true,
     content: '---\ndocgov:\n  id: leak\n  type: security.threat-model\n  visibility: internal\n---\n# t\n' });
-  const v = r.find((x) => x.rule === 'visibility-path');
+  const v = r.find((x) => x.check === 'visibility-path');
   assert.ok(v && v.blocking, 'an internal threat model in an external path must be blocked');
 });
 
@@ -379,7 +379,7 @@ test('preWrite: surfaces unparseable frontmatter before the write lands', () => 
   const { cfg } = cfgmod.load(ROOT);
   const r = check.preWrite({ cfg, relPath: 'docs/a.md', registry: { documents: {} }, isNew: true,
     content: '---\ndocgov:\n  id: &anchor x\n---\n# a\n' });
-  assert.ok(r.some((x) => x.rule === 'invalid-yaml'));
+  assert.ok(r.some((x) => x.check === 'invalid-yaml'));
 });
 
 test('preWrite: a clean write produces no reasons at all', () => {
@@ -612,7 +612,7 @@ test('impact: maps a code change to the documents that claim it, and flags secur
   assert.equal(r.level, 'HIGH', 'security-path changes are always high impact');
   const a = r.affected.find((x) => x.id === 'auth-sec');
   assert.ok(a?.required && !a.updated);
-  const m = impactmod.manifest(r);
+  const m = impactmod.checklist(r);
   assert.deepEqual(m.docs.outstanding, ['auth-sec']);
 });
 
@@ -622,7 +622,7 @@ test('cli: init → create → check is a clean cycle', () => {
   const dir = tmpRepo();
   wf(dir, 'package.json', '{"name":"t"}');
   commit(dir);
-  assert.equal(cli(dir, ['init', '--mode', 'solo']).code, 0);
+  assert.equal(cli(dir, ['setup', '--mode', 'solo']).code, 0);
   assert.ok(fs.existsSync(path.join(dir, '.docgov/config.yaml')));
   assert.ok(fs.existsSync(path.join(dir, '.claude/rules/documentation.md')), 'agent rules must be installed');
   assert.equal(cli(dir, ['create', 'architecture.adr', 'Pick a database']).code, 0);
@@ -640,7 +640,7 @@ test('cli: adopting DocGov on an existing repository does not fail CI on day one
   wf(dir, 'README.md', '# T\n\nno frontmatter, predates DocGov\n');
   wf(dir, 'ARCHITECTURE.md', '# A\n\ncomponents and boundaries\n');
   commit(dir);
-  const init = cli(dir, ['init']);
+  const init = cli(dir, ['setup']);
   assert.equal(init.code, 0);
   assert.match(init.out, /warn_only is on/, 'the ramp must be visible, not silent');
   assert.equal(cli(dir, ['check']).code, EXIT.OK,
@@ -657,7 +657,7 @@ test('cli: a fresh repository with no pre-existing documents enforces immediatel
   const dir = tmpRepo();
   wf(dir, 'CODEOWNERS', '* @team\n');
   commit(dir);
-  const init = cli(dir, ['init']);
+  const init = cli(dir, ['setup']);
   assert.doesNotMatch(init.out, /warn_only/, 'there is nothing to ramp up from');
 });
 
@@ -665,7 +665,7 @@ test('cli: check exits 1 on a blocking violation and 0 once it is fixed', () => 
   const dir = tmpRepo();
   wf(dir, 'package.json', '{"name":"t"}');
   commit(dir);
-  cli(dir, ['init', '--mode', 'solo']);
+  cli(dir, ['setup', '--mode', 'solo']);
   wf(dir, 'docs/a.md', '---\ndocgov:\n  id: same\n  type: user.guide\n---\n# A\n\n## Goal\n\n## Steps\n\n## Verification\n\n## Related\n');
   wf(dir, 'docs/b.md', '---\ndocgov:\n  id: same\n  type: user.guide\n---\n# B\n\n## Goal\n\n## Steps\n\n## Verification\n\n## Related\n');
   assert.equal(cli(dir, ['check']).code, EXIT.VIOLATION, 'duplicate id must block even in solo mode');
@@ -674,28 +674,28 @@ test('cli: check exits 1 on a blocking violation and 0 once it is fixed', () => 
   assert.equal(cli(dir, ['check']).code, EXIT.OK);
 });
 
-test('cli: migrate refuses to run on a dirty tree', () => {
+test('cli: fix refuses to run on a dirty tree', () => {
   const dir = tmpRepo();
   wf(dir, 'package.json', '{"name":"t"}');
   commit(dir);
-  cli(dir, ['init', '--mode', 'solo']);
+  cli(dir, ['setup', '--mode', 'solo']);
   wf(dir, 'STRAY.md', '# Stray\n');
-  cli(dir, ['onboard']);
-  const r = cli(dir, ['migrate']);
+  cli(dir, ['review']);
+  const r = cli(dir, ['fix']);
   assert.equal(r.code, EXIT.CONFIG);
   assert.match(r.out, /uncommitted changes/);
 });
 
-test('cli: migrate moves documents, repairs links and verifies the result', () => {
+test('cli: fix moves documents, repairs links and verifies the result', () => {
   const dir = tmpRepo();
   wf(dir, 'architecture.md', '# Architecture\n\nComponents and boundaries. See [the runbook](failover-runbook.md).\n');
   wf(dir, 'failover-runbook.md', '# Failover\n\n## Trigger\n\n## Procedure\n\nBack to [architecture](architecture.md).\n');
   commit(dir);
-  cli(dir, ['init', '--mode', 'solo']);
+  cli(dir, ['setup', '--mode', 'solo']);
   commit(dir, 'init docgov');
-  assert.equal(cli(dir, ['onboard']).code, 0, 'onboard must not need a committed plan');
+  assert.equal(cli(dir, ['review']).code, 0, 'review must not need a committed plan');
 
-  const r = cli(dir, ['migrate', '--branch=test-migration']);
+  const r = cli(dir, ['fix', '--branch=test-migration']);
   assert.equal(r.code, EXIT.OK, r.out);
   assert.ok(!fs.existsSync(path.join(dir, 'architecture.md')), 'a classified root document must be relocated');
   assert.ok(!fs.existsSync(path.join(dir, 'failover-runbook.md')));
@@ -709,14 +709,14 @@ test('cli: migrate moves documents, repairs links and verifies the result', () =
   assert.ok(s.docs.every((d) => d.registered), 'every moved document must come out annotated');
 });
 
-test('cli: migrate leaves an unclassifiable document where it is rather than guessing', () => {
+test('cli: fix leaves an unclassifiable document where it is rather than guessing', () => {
   const dir = tmpRepo();
   wf(dir, 'thoughts.md', '# Thoughts\n\nUnstructured prose with no classification signal at all.\n');
   commit(dir);
-  cli(dir, ['init', '--mode', 'solo']);
+  cli(dir, ['setup', '--mode', 'solo']);
   commit(dir, 'init docgov');
-  cli(dir, ['onboard']);
-  const r = cli(dir, ['migrate']);
+  cli(dir, ['review']);
+  const r = cli(dir, ['fix']);
   assert.equal(r.code, EXIT.OK);
   assert.match(r.out, /CLASSIFY/, 'it must be deferred, visibly');
 });
@@ -725,19 +725,30 @@ test('cli: every command accepts --json and emits parseable JSON', () => {
   const dir = tmpRepo();
   wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
   commit(dir);
-  cli(dir, ['init', '--mode', 'solo']);
-  for (const args of [['check'], ['health'], ['graph'], ['registry'], ['types'], ['invariants'],
-    ['impact'], ['drift'], ['find', 'install'], ['classify', '--path', 'README.md'], ['capabilities'], ['publish']]) {
+  cli(dir, ['setup', '--mode', 'solo']);
+  for (const args of [['check'], ['health'], ['graph'], ['registry'], ['types'], ['rules'],
+    ['affected'], ['stale'], ['find', 'install'], ['whatis', '--path', 'README.md'], ['tools'], ['publish']]) {
     const r = cli(dir, [...args, '--json']);
     assert.doesNotThrow(() => JSON.parse(r.out), `${args.join(' ')} --json must emit JSON, got: ${r.out.slice(0, 160)}`);
   }
+});
+
+test('cli: JSON larger than the pipe buffer is not truncated on exit', () => {
+  // process.exit() discards unflushed async writes when stdout is a pipe, which silently
+  // truncated any output past the 8 KB buffer on Node 20. `types --json` is well past it.
+  const dir = tmpRepo();
+  commit(dir);
+  const r = cli(dir, ['types', '--json']);
+  assert.ok(r.out.length > 8192, `output must exceed the pipe buffer to be a real test, got ${r.out.length} bytes`);
+  const parsed = JSON.parse(r.out);
+  assert.ok(Array.isArray(parsed) && parsed.length > 50, 'every document class must survive the pipe');
 });
 
 test('cli: hook pre-tool denies a generated-tree edit and injects invariants for code', () => {
   const dir = tmpRepo();
   wf(dir, 'src/licensing/v.ts', 'const A = 1;\n');
   commit(dir);
-  cli(dir, ['init', '--mode', 'team']);
+  cli(dir, ['setup', '--mode', 'team']);
   wf(dir, 'docs/90-generated/api.md', '# generated\n');
   wf(dir, 'docs/architecture/lic.md',
     '---\ndocgov:\n  id: lic\n  type: architecture.domain\n  visibility: internal\n  documents: ["src/licensing/**"]\n---\n# L\n\n- INV-LIC-001 One org.\n');
@@ -762,7 +773,7 @@ test('cli: a malformed hook payload fails open without output', () => {
   const dir = tmpRepo();
   wf(dir, 'package.json', '{"name":"t"}');
   commit(dir);
-  cli(dir, ['init']);
+  cli(dir, ['setup']);
   const out = execFileSync(process.execPath, [BIN, 'hook', 'pre-tool'],
     { cwd: dir, input: '{not json', encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
   assert.equal(out.trim(), '', 'no stdout means no hook decision, which is the safe default');
@@ -779,7 +790,7 @@ test('cli: conventional --version and --help flags work, and exit 0', () => {
   for (const flag of ['--help', '-h', 'help']) {
     const r = cli(dir, [flag]);
     assert.equal(r.code, 0, `${flag} must exit 0`);
-    assert.match(r.out, /documentation governance/, `${flag} must print usage`);
+    assert.match(r.out, /Exit codes:/, `${flag} must print usage`);
   }
   assert.equal(cli(dir, ['--nonsense']).code, EXIT.CONFIG, 'an unknown flag is still a config error');
 });
@@ -790,7 +801,7 @@ test('cli: an uninitialized repository is told what to do, not crashed at', () =
   commit(dir);
   const r = cli(dir, ['check']);
   assert.equal(r.code, EXIT.CONFIG);
-  assert.match(r.out, /docgov init/);
+  assert.match(r.out, /docgov setup/);
 });
 
 // ───────────────────────────── templates ─────────────────────────────

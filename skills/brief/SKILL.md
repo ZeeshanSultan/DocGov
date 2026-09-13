@@ -1,5 +1,5 @@
 ---
-name: context
+name: brief
 description: Load the minimal authoritative documentation context for a topic or domain before changing code — the constitution, the canonical specification, the invariants in force, the relevant ADRs and the machine contracts, and nothing else. Use before implementing or modifying anything in a governed area.
 allowed-tools: Bash(docgov *) Read
 argument-hint: "<domain-or-topic>"
@@ -7,7 +7,7 @@ argument-hint: "<domain-or-topic>"
 
 # Authoritative context
 
-!`docgov context $ARGUMENTS 2>&1 | head -c 28000`
+!`docgov brief $ARGUMENTS 2>&1 | head -c 28000`
 
 ## How to use this
 
@@ -34,5 +34,5 @@ small.
 5. **"Not included in full"** entries are real documents that did not fit the budget. Read
    them directly if your change touches what their headings describe.
 
-After you change code here, run `/docgov:impact` to find out which of these documents you
+After you change code here, run `/docgov:affected` to find out which of these documents you
 now owe an update.

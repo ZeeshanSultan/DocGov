@@ -11,7 +11,7 @@ than any review process can repair it.
 1. **Check whether it already exists.** `docgov find "<topic>"` returns results in
    authority order. If an authoritative document already covers the topic, update
    that document. Do not create a second one.
-2. **Find out what you are writing.** `docgov classify --path <intended-file>` names
+2. **Find out what you are writing.** `docgov whatis --path <intended-file>` names
    the document class, its canonical location, its required sections and its limits.
 3. **Create it through DocGov.** `docgov create <type> "<name>" [--domain <d>]` puts
    it in the right place, applies the template, and wires it into the graph. A
@@ -19,16 +19,16 @@ than any review process can repair it.
    will be told when it goes stale.
 
 Never invent a new top-level Markdown file. Never invent a new documentation
-directory. The taxonomy has 56 document classes; run `docgov types` before
+directory. The taxonomy has 59 document classes; run `docgov types` before
 concluding that yours is not one of them.
 
 ## Before editing code in a governed area
 
-Run `docgov context <domain>` and read it. It is the minimum authoritative context
-for that area: the constitution, the canonical specification, the invariants in
+Run `docgov brief <domain>` and read it. It is the minimum authoritative context
+for that area: the constitution, the canonical specification, the rules in
 force, the relevant ADRs and the machine contracts — and nothing else.
 
-If an invariant blocks what you were about to do, the invariant wins. Changing it
+If a rule blocks what you were about to do, the rule wins. Changing it
 means changing its source document in the same change, with a reason.
 
 ## Authority
@@ -64,13 +64,13 @@ their contents.
 
 ## After changing anything material
 
-1. `docgov impact` — which documents this change affects, and which of them are
+1. `docgov affected` — which documents this change affects, and which of them are
    required rather than optional.
 2. Update the required ones in the same change. "I will document it later" is how
    drift starts.
-3. `docgov check` — deterministic violations. Blocking rules in this mode:
+3. `docgov check` — deterministic violations. Blocking checks in this mode:
    `generated-edit, duplicate-id, invalid-yaml`.
-4. If a rule is genuinely wrong for your case, `docgov suppress <ID> --reason "..."`.
+4. If a check is genuinely wrong for your case, `docgov ignore <ID> --reason "..."`.
    A suppression needs a reason, stays visible in every report, and can expire. What
    it never does is disappear.
 

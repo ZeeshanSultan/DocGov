@@ -5,22 +5,22 @@
     {
       "id": "changelog",
       "path": "CHANGELOG.md",
-      "type": "release.notes",
+      "type": "release.changelog",
       "authority": "historical",
       "visibility": "public",
       "domain": null,
       "status": "active",
       "kind": "document",
-      "lines": 74,
-      "hash": "aae19fc4f76501e7",
+      "lines": 185,
+      "hash": "929490cbd3f5d46d",
       "generated": false
     },
     {
       "id": "code-of-conduct",
       "path": "CODE_OF_CONDUCT.md",
-      "type": "unknown",
-      "authority": "historical",
-      "visibility": "internal",
+      "type": "governance.code-of-conduct",
+      "authority": "audience",
+      "visibility": "public",
       "domain": null,
       "status": "active",
       "kind": "document",
@@ -50,8 +50,8 @@
       "domain": null,
       "status": "active",
       "kind": "document",
-      "lines": 185,
-      "hash": "e12a59cd06f32bd9",
+      "lines": 144,
+      "hash": "0bd36e5fe8a62a3d",
       "generated": false
     },
     {
@@ -77,7 +77,7 @@
       "status": "active",
       "kind": "document",
       "lines": 232,
-      "hash": "d447a340bc80e2fc",
+      "hash": "84c1c41dc7013408",
       "generated": false
     },
     {
@@ -102,8 +102,8 @@
       "domain": null,
       "status": "active",
       "kind": "document",
-      "lines": 120,
-      "hash": "aa4d4ad13e8e87fb",
+      "lines": 123,
+      "hash": "6f392fb4f3c46bac",
       "generated": false
     },
     {
@@ -116,7 +116,7 @@
       "status": "active",
       "kind": "document",
       "lines": 122,
-      "hash": "5e628c7b9929ef34",
+      "hash": "bf90ee0d8f657e7a",
       "generated": false
     },
     {
@@ -128,8 +128,8 @@
       "domain": null,
       "status": "active",
       "kind": "document",
-      "lines": 90,
-      "hash": "33ebe52ec501580d",
+      "lines": 99,
+      "hash": "592620c33edd1976",
       "generated": false
     },
     {
@@ -141,8 +141,151 @@
       "domain": null,
       "status": "active",
       "kind": "document",
-      "lines": 1809,
-      "hash": "9d7de81ce1b419cd",
+      "lines": 277,
+      "hash": "b61d3f12f20718f3",
+      "generated": false
+    },
+    {
+      "id": "product-index",
+      "path": "docs/product/README.md",
+      "type": "docs.index",
+      "authority": "audience",
+      "visibility": "internal",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 23,
+      "hash": "cea4b98542edc445",
+      "generated": false
+    },
+    {
+      "id": "prd-index",
+      "path": "docs/product/prd/README.md",
+      "type": "docs.index",
+      "authority": "audience",
+      "visibility": "internal",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 29,
+      "hash": "298a908057d83de3",
+      "generated": false
+    },
+    {
+      "id": "prd-adoption",
+      "path": "docs/product/prd/adoption.md",
+      "type": "product.feature",
+      "authority": "requirements",
+      "visibility": "internal",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 260,
+      "hash": "4195f06c758da6fc",
+      "generated": false
+    },
+    {
+      "id": "prd-boundaries",
+      "path": "docs/product/prd/boundaries.md",
+      "type": "product.feature",
+      "authority": "requirements",
+      "visibility": "internal",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 229,
+      "hash": "a1e6c263c3edfe6b",
+      "generated": false
+    },
+    {
+      "id": "prd-conventions",
+      "path": "docs/product/prd/conventions.md",
+      "type": "product.feature",
+      "authority": "requirements",
+      "visibility": "internal",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 293,
+      "hash": "c655aff97fc378c7",
+      "generated": false
+    },
+    {
+      "id": "prd-enforcement",
+      "path": "docs/product/prd/enforcement.md",
+      "type": "product.feature",
+      "authority": "requirements",
+      "visibility": "internal",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 406,
+      "hash": "43dc1b63ad88e16f",
+      "generated": false
+    },
+    {
+      "id": "prd-model",
+      "path": "docs/product/prd/model.md",
+      "type": "product.feature",
+      "authority": "requirements",
+      "visibility": "internal",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 419,
+      "hash": "f01edc928f60418c",
+      "generated": false
+    },
+    {
+      "id": "prd-system",
+      "path": "docs/product/prd/system.md",
+      "type": "product.feature",
+      "authority": "requirements",
+      "visibility": "internal",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 391,
+      "hash": "42dc6f3daff61724",
+      "generated": false
+    },
+    {
+      "id": "docgov-roadmap",
+      "path": "docs/product/roadmap.md",
+      "type": "product.roadmap",
+      "authority": "requirements",
+      "visibility": "internal",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 72,
+      "hash": "5bfdc7cc098fee7f",
+      "generated": false
+    },
+    {
+      "id": "docgov-vision",
+      "path": "docs/product/vision.md",
+      "type": "product.vision",
+      "authority": "requirements",
+      "visibility": "internal",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 70,
+      "hash": "9629aeb5e3017239",
+      "generated": false
+    },
+    {
+      "id": "commands",
+      "path": "docs/reference/commands.md",
+      "type": "user.reference",
+      "authority": "generated",
+      "visibility": "public",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 375,
+      "hash": "08c1c707bbebea18",
       "generated": false
     },
     {
@@ -291,6 +434,144 @@
       "inferred": true
     },
     {
+      "from": "docgov-prd",
+      "to": "docgov-vision",
+      "rel": "depends_on",
+      "inferred": false
+    },
+    {
+      "from": "docgov-vision",
+      "to": "docgov-prd",
+      "rel": "depended_on_by",
+      "inferred": true
+    },
+    {
+      "from": "prd-adoption",
+      "to": "docgov-prd",
+      "rel": "implements",
+      "inferred": false
+    },
+    {
+      "from": "docgov-prd",
+      "to": "prd-adoption",
+      "rel": "implemented_by",
+      "inferred": true
+    },
+    {
+      "from": "prd-boundaries",
+      "to": "docgov-prd",
+      "rel": "implements",
+      "inferred": false
+    },
+    {
+      "from": "docgov-prd",
+      "to": "prd-boundaries",
+      "rel": "implemented_by",
+      "inferred": true
+    },
+    {
+      "from": "prd-conventions",
+      "to": "docgov-prd",
+      "rel": "implements",
+      "inferred": false
+    },
+    {
+      "from": "docgov-prd",
+      "to": "prd-conventions",
+      "rel": "implemented_by",
+      "inferred": true
+    },
+    {
+      "from": "prd-enforcement",
+      "to": "docgov-prd",
+      "rel": "implements",
+      "inferred": false
+    },
+    {
+      "from": "docgov-prd",
+      "to": "prd-enforcement",
+      "rel": "implemented_by",
+      "inferred": true
+    },
+    {
+      "from": "prd-model",
+      "to": "docgov-prd",
+      "rel": "implements",
+      "inferred": false
+    },
+    {
+      "from": "docgov-prd",
+      "to": "prd-model",
+      "rel": "implemented_by",
+      "inferred": true
+    },
+    {
+      "from": "prd-system",
+      "to": "docgov-prd",
+      "rel": "implements",
+      "inferred": false
+    },
+    {
+      "from": "docgov-prd",
+      "to": "prd-system",
+      "rel": "implemented_by",
+      "inferred": true
+    },
+    {
+      "from": "docgov-roadmap",
+      "to": "docgov-prd",
+      "rel": "depends_on",
+      "inferred": false
+    },
+    {
+      "from": "docgov-prd",
+      "to": "docgov-roadmap",
+      "rel": "depended_on_by",
+      "inferred": true
+    },
+    {
+      "from": "docgov-vision",
+      "to": "docgov-prd",
+      "rel": "depends_on",
+      "inferred": false
+    },
+    {
+      "from": "docgov-prd",
+      "to": "docgov-vision",
+      "rel": "depended_on_by",
+      "inferred": true
+    },
+    {
+      "from": "commands",
+      "to": "architecture-overview",
+      "rel": "depends_on",
+      "inferred": false
+    },
+    {
+      "from": "architecture-overview",
+      "to": "commands",
+      "rel": "depended_on_by",
+      "inferred": true
+    },
+    {
+      "from": "changelog",
+      "to": "docgov-vision",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "changelog",
+      "to": "docgov-roadmap",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "changelog",
+      "to": "prd-index",
+      "rel": "references",
+      "inferred": true
+    },
+    {
       "from": "contributing",
       "to": "docgov-feasibility",
       "rel": "references",
@@ -310,13 +591,25 @@
     },
     {
       "from": "readme",
-      "to": "security-public",
+      "to": "commands",
       "rel": "references",
       "inferred": true
     },
     {
       "from": "readme",
-      "to": "examples-policy-packs-readme",
+      "to": "commands",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "readme",
+      "to": "architecture-overview",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "readme",
+      "to": "security-public",
       "rel": "references",
       "inferred": true
     },
@@ -328,25 +621,13 @@
     },
     {
       "from": "readme",
-      "to": "security-public",
-      "rel": "references",
-      "inferred": true
-    },
-    {
-      "from": "readme",
       "to": "changelog",
       "rel": "references",
       "inferred": true
     },
     {
       "from": "readme",
-      "to": "docgov-prd",
-      "rel": "references",
-      "inferred": true
-    },
-    {
-      "from": "readme",
-      "to": "docgov-feasibility",
+      "to": "examples-policy-packs-readme",
       "rel": "references",
       "inferred": true
     },
@@ -449,6 +730,366 @@
     {
       "from": "development",
       "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "prd-index",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "docgov-vision",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "architecture-overview",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "docgov-vision",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "prd-model",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "prd-conventions",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "prd-adoption",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "prd-enforcement",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "prd-boundaries",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "prd-system",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "security-public",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "prd-index",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "prd-index",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "docgov-roadmap",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "docgov-vision",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "docgov-roadmap",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "prd-index",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "architecture-overview",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-prd",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "product-index",
+      "to": "docgov-prd",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "product-index",
+      "to": "docgov-vision",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "product-index",
+      "to": "docgov-roadmap",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "product-index",
+      "to": "prd-index",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "product-index",
+      "to": "architecture-overview",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "product-index",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-index",
+      "to": "docgov-prd",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-index",
+      "to": "prd-model",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-index",
+      "to": "prd-conventions",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-index",
+      "to": "prd-adoption",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-index",
+      "to": "prd-enforcement",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-index",
+      "to": "prd-boundaries",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-index",
+      "to": "prd-system",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-index",
+      "to": "architecture-overview",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-index",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-adoption",
+      "to": "docgov-prd",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-adoption",
+      "to": "architecture-overview",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-adoption",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-boundaries",
+      "to": "docgov-prd",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-boundaries",
+      "to": "architecture-overview",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-boundaries",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-conventions",
+      "to": "docgov-prd",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-conventions",
+      "to": "architecture-overview",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-conventions",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-enforcement",
+      "to": "docgov-prd",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-enforcement",
+      "to": "architecture-overview",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-enforcement",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-model",
+      "to": "docgov-prd",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-model",
+      "to": "architecture-overview",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-model",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-system",
+      "to": "docgov-prd",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-system",
+      "to": "architecture-overview",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "prd-system",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-roadmap",
+      "to": "docgov-prd",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-roadmap",
+      "to": "changelog",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-vision",
+      "to": "docgov-prd",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "docgov-vision",
+      "to": "docgov-roadmap",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "commands",
+      "to": "readme",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "commands",
+      "to": "architecture-overview",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "commands",
+      "to": "security-public",
       "rel": "references",
       "inferred": true
     },

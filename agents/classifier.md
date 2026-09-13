@@ -1,6 +1,6 @@
 ---
 name: classifier
-description: Decides what an ambiguous document actually is, when the deterministic classifier could not. Use for documents where docgov classify reports needsReview, or for bulk classification during onboarding.
+description: Decides what an ambiguous document actually is, when the deterministic classifier could not. Use for documents where docgov whatis reports needsReview, or for bulk classification during onboarding.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 effort: low
@@ -15,7 +15,7 @@ ambiguous and that filename heuristics have already been tried and failed.
 ## Method
 
 1. Run `docgov types --json` to get the full class list. Never invent a class.
-2. Run `docgov classify --path <file> --json` to see the candidates and the signals that
+2. Run `docgov whatis --path <file> --json` to see the candidates and the signals that
    produced them. The signals tell you what the classifier saw; your job is to see what it
    missed.
 3. Read enough of the document to answer one question: **what does this document let a

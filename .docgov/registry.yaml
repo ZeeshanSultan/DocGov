@@ -22,8 +22,8 @@ documents:
     registered_in: config
     title: Changelog
     owner: docgov
-    hash: 929490cbd3f5d46d
-    lines: 185
+    hash: 3a207fe2fdc637d1
+    lines: 251
   code-of-conduct:
     path: CODE_OF_CONDUCT.md
     type: governance.code-of-conduct
@@ -41,7 +41,7 @@ documents:
     visibility: public
     title: Commands
     owner: docgov
-    hash: 08c1c707bbebea18
+    hash: 16f3fc7ffce33635
     lines: 375
     relationships:
       depends_on:
@@ -63,7 +63,7 @@ documents:
     visibility: public
     title: Development
     owner: docgov
-    hash: bf90ee0d8f657e7a
+    hash: 8e679a757631ec19
     lines: 122
     relationships:
       depends_on:
@@ -75,7 +75,7 @@ documents:
     visibility: internal
     title: "DocGov — Technical Feasibility Assessment"
     owner: docgov
-    hash: 84c1c41dc7013408
+    hash: b7529f259e7dd585
     lines: 232
     relationships:
       implements:
@@ -232,7 +232,7 @@ documents:
     registered_in: config
     title: DocGov
     owner: docgov
-    hash: 0bd36e5fe8a62a3d
+    hash: e7bc7390a4071f87
     lines: 144
   schemas-config:
     path: schemas/config.json
@@ -263,7 +263,7 @@ documents:
     visibility: public
     title: Testing strategy
     owner: docgov
-    hash: dbbe3b6166c7c68c
+    hash: 8f43a12a0d1bdb13
     lines: 113
     relationships:
       depends_on:

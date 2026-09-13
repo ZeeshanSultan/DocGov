@@ -28,7 +28,7 @@ toolchain. `npm test` works on a fresh clone.
 git clone https://github.com/ZeeshanSultan/DocGov.git
 cd DocGov
 node -v        # 20+
-npm test       # 60 tests
+npm test       # the engine suite
 ```
 
 ## Setup

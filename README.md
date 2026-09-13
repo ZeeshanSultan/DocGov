@@ -88,7 +88,7 @@ Every command takes `--json`. Full list: **[docs/reference/commands.md](docs/ref
 
 | | |
 |---|---|
-| **Knows what a document is** | 59 document classes. Each one has a place it belongs, sections it must have, and a size past which it stops being that kind of document. Point it at a file and it'll tell you what you wrote. |
+| **Knows what a document is** | A class for every kind of document, and each one has a place it belongs, sections it must have, and a size past which it stops being that kind of document. Point it at a file and it'll tell you what you wrote. |
 | **Knows which docs outrank which** | Your spec beats the tutorial that paraphrases it. A README can't quietly contradict an ADR. When two documents disagree, there's a defined answer for which one is wrong. |
 | **Hands your agent the rules** | Write `INV-LIC-001 A license belongs to exactly one organization.` in a spec, map it to the code it governs, and every agent that touches that code gets the rule before it writes a line. Cheapest useful thing in here. |
 | **Notices when docs go stale** | Code moved and the doc didn't. Spec moved and the code didn't. Your OpenAPI file is ahead of the page describing it. Scored by what changed *around* a document, not by how old it is. |
@@ -137,7 +137,7 @@ that off.
   positives. A rule that fires when it shouldn't is the bug that decides whether anyone trusts
   this thing.
 
-`npm test` runs 63 tests against real temporary git repos. DocGov governs its own repository,
+`npm test` runs the suite against real temporary git repos. DocGov governs its own repository,
 so `docgov check --all` here is a real end-to-end test.
 
 [MIT](LICENSE).

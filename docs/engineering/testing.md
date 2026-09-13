@@ -42,7 +42,7 @@ commit real files, and run the real binary as a subprocess.
 - **The hook protocol as a subprocess.** Denials, context injection, silence on ungoverned
   paths, and failing open on a malformed payload.
 - **Every template against its own gate.** The test *every document class produces a document
-  that satisfies its own gate* is what keeps 59 classes honest — adding a class with mismatched
+  that satisfies its own gate* is what keeps every class honest — adding a class with mismatched
   sections fails immediately.
 - **Static-site link semantics.** That an image under `static/`, a section link without a
   trailing slash, and a page-relative `../sibling/` all resolve inside a content tree, while a

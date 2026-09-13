@@ -13,6 +13,76 @@ with a migration note.
 
 Nothing yet.
 
+## [0.2.2] — 2026-09-13
+
+Nine bugs, found by running DocGov over three repositories it had never seen —
+a 1,045-document Go monorepo, a 42-document Electron app, and a 299-document
+Python project with a Hugo documentation site. Every one of them was in link
+resolution, and every one was invisible in DocGov's own repository, whose
+documentation happens to use none of the conventions involved.
+
+The headline: `broken-link` is the highest-severity check, and on a real
+repository it was mostly wrong.
+
+    chainsaw     1,304 → 181
+    DefectDojo     110 → 4
+    ShellPilot       1 → 0
+
+Every surviving finding on all three was confirmed by hand. The four left on
+DefectDojo are one authoring mistake repeated — label and target swapped.
+
+### Fixed
+
+- **The inventory's file set was treated as truth.** It holds no directories,
+  and skips dotfiles and untracked source files, so `./core/`, `.golangci.yml`
+  and `core/coverage/gate.go` were all reported broken while existing. A miss is
+  now confirmed against the filesystem; the stat runs only on misses.
+- **Link destinations stopped at the first `)`.** CommonMark allows balanced
+  parentheses, and Next.js route groups put them in real paths:
+  `app/(dashboard)/billy/` was captured as `app/(dashboard`. Angle-bracketed
+  destinations are parsed now too.
+- **Five resolution conventions had no fallback**: static-site permalinks,
+  repo-root-relative paths, directories, dotfiles and `file.go:43` line
+  references. Each is tried only after the previous misses, and each still
+  requires the target to exist.
+- **A link that climbs out of the repository is not an internal link.** GitHub
+  resolves it against the repository URL — which is how the
+  private-vulnerability-reporting link GitHub documents is written,
+  `[report](../../security/advisories/new)`.
+- **Documentation sites resolve links against the rendered URL, not the file
+  path.** `static/` is served at the site root; a page renders as its own
+  directory, so `../sibling/` is a sibling of the page; the trailing slash is
+  optional. On a Hugo site this was 106 of 110 findings — 93 of them every
+  image in the tree.
+- **A misplaced singleton was deleted rather than classified.**
+  `docs/CODE_OF_CONDUCT.md` came back `unknown`, "no signal matched", when being
+  in the wrong place is what should have been reported. Off-canonical singletons
+  are demoted, not dropped; a nested README still loses to `docs.index`.
+- **Layout relocated documents other tools locate by path.** `full` layout sent
+  SECURITY.md to `docs/11-external/`, SUPPORT.md into `docs/09-governance/`, and
+  every agent-instruction file onto CLAUDE.md — a collision, not a move. GitHub,
+  Claude Code, Gemini CLI, Cursor and Copilot each hard-code a path.
+- **GitHub templates were governed in one spelling but not the other.** The
+  exclude carried `PULL_REQUEST_TEMPLATE.md`; a repository spelling it
+  `pull_request_template.md` had a `docgov:` block proposed for the top of every
+  pull request description.
+- **`\b` treats a hyphen as a word boundary**, so the runbook signal matched the
+  dependency `memory-pager` in a licence table and classified
+  THIRD-PARTY-NOTICES.md as operations documentation.
+
+### Added
+
+- `governance.attribution` — NOTICE, THIRD-PARTY-NOTICES, ATTRIBUTIONS, CREDITS.
+  Unclassified, they were proposed for `docs/10-internal/`, which would hide a
+  public legal notice and mark it internal.
+- `.githooks`-style protection for the paths other tools read: agent-instruction
+  files keep their own filename instead of resolving onto CLAUDE.md.
+- 11 regression tests, each verified to fail without its fix.
+- Counts that drift are gone from the prose. The number of document classes was
+  written into six files and was wrong three separate times in one day; the test
+  count was wrong in three. Neither number told a reader anything `docgov types`
+  and `npm test` do not.
+
 ## [0.2.1] — 2026-09-13
 
 Everything here was found after 0.2.0 was published, by testing the Node 20 lower bound

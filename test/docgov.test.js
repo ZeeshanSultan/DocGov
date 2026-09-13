@@ -185,6 +185,29 @@ test('classifier: a singleton class only wins at its canonical path', () => {
     'docs/guides/README.md', 'an index belongs to its own directory and must never be relocated');
 });
 
+test('classifier: files other tools locate by path are never relocated by layout', () => {
+  // GitHub reads README, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY and SUPPORT from the
+  // repository root; Claude Code reads CLAUDE.md, Gemini CLI GEMINI.md, Copilot
+  // .github/copilot-instructions.md. Moving any of them is a silent breakage, not a
+  // tidy-up: `full` layout used to send SECURITY.md to docs/11-external/security.md and
+  // SUPPORT.md into docs/09-governance/, where GitHub stops finding either.
+  const body = '# T\n\n## Install\n\n## Usage\n';
+  const rooted = ['README.md', 'CONTRIBUTING.md', 'CODE_OF_CONDUCT.md', 'SECURITY.md',
+    'SUPPORT.md', 'CHANGELOG.md', 'CLAUDE.md', 'AGENTS.md', 'GEMINI.md',
+    '.github/copilot-instructions.md'];
+  for (const layout of ['full', 'compact']) {
+    for (const f of rooted) {
+      const { type } = classify({ path: f, body, frontmatter: {} });
+      assert.equal(destinationFor({ project: { layout } }, type, f), f,
+        `${f} must not move in ${layout} layout`);
+    }
+  }
+  // and the agent files must not all collapse onto CLAUDE.md, which would be a collision
+  const dests = ['CLAUDE.md', 'AGENTS.md', 'GEMINI.md'].map((f) =>
+    destinationFor({ project: { layout: 'full' } }, classify({ path: f, body, frontmatter: {} }).type, f));
+  assert.equal(new Set(dests).size, 3, 'three agent files, three distinct destinations');
+});
+
 test('classifier: a misplaced singleton is still classified, not left unknown', () => {
   // Deleting off-canonical singletons left nothing to report: `docs/CODE_OF_CONDUCT.md`
   // came back `unknown` / "no signal matched", when being in the wrong place is precisely

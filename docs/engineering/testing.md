@@ -44,6 +44,11 @@ commit real files, and run the real binary as a subprocess.
 - **Every template against its own gate.** The test *every document class produces a document
   that satisfies its own gate* is what keeps 59 classes honest — adding a class with mismatched
   sections fails immediately.
+- **The paths other tools hard-code.** That no layout relocates README, CONTRIBUTING,
+  CODE_OF_CONDUCT, SECURITY, SUPPORT, CLAUDE.md, AGENTS.md or GEMINI.md, and that the agent
+  files resolve to three distinct destinations rather than collapsing onto CLAUDE.md. Each of
+  those moves is invisible in this repository and breaks a different piece of software in
+  someone else's.
 - **Output that must survive a pipe.** `types --json` is larger than the 8 KB pipe buffer, and
   the test asserts both that it exceeds it and that it still parses. This guards a real bug:
   the CLI called `process.exit()`, which discards unflushed asynchronous writes, so on Node 20

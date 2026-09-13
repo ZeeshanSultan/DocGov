@@ -18,7 +18,7 @@ const NAME_SIGNALS = [
   [/^security\.mdx?$/i, 'security.public-model', 70],
   [/^support/i, 'governance.support', 90],
   [/^changelog/i, 'release.changelog', 100],
-  [/^claude\.mdx?$|^agents\.mdx?$|^\.cursorrules$/i, 'agent.instructions', 100],
+  [/^(claude|agents|gemini)\.mdx?$|^\.(cursorrules|windsurfrules)$|^copilot-instructions\.mdx?$/i, 'agent.instructions', 100],
   [/^code_of_conduct/i, 'governance.code-of-conduct', 95],
   [/^license/i, 'governance.policy', 30],
   [/^product\.mdx?$/i, 'constitution.product', 90],
@@ -233,6 +233,13 @@ export function classify(doc) {
 export function destinationFor(cfg, type, currentPath) {
   const t = TYPES[type] || TYPES.unknown;
   if (t.anywhere) return currentPath;                       // belongs to its directory
+  // Anchored: something outside this repository looks for the file at a path it
+  // hard-codes. GitHub reads README, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY and SUPPORT
+  // from the root, `.github/` or `docs/` and nowhere else; Claude Code reads CLAUDE.md,
+  // Gemini CLI GEMINI.md, Cursor .cursorrules. Relocating any of them by layout is not a
+  // tidy-up, it is a silent breakage — `full` layout previously sent SECURITY.md to
+  // docs/11-external/security.md, where GitHub stops finding it.
+  if (t.anchored) return currentPath;
   const loc = cfg.project.layout === 'full' ? t.full : (t.compact || t.full);
   if (!loc.endsWith('/')) return loc;                       // singleton or fixed file
   const base = path.basename(currentPath);

@@ -222,15 +222,21 @@ export function cmdFind(flags) {
 }
 
 export function cmdTypes(flags) {
+  // Load config even though nothing here reads it: loading is what registers the classes a
+  // project defined for itself. Without this, `docgov types` was the one command that could
+  // not see a custom class — the command whose entire job is to list them.
+  try { cfgmod.load(process.cwd()); } catch { /* an unreadable config still lists the shipped classes */ }
   const rows = tpl.listTypes();
   if (json()) return emit(rows) ?? EXIT.OK;
   const filter = flags._[0];
   const shown = filter ? rows.filter((r) => r.type.includes(filter) || r.authority.includes(filter)) : rows;
   say(table(shown.map((r) => ({
     Type: r.type, Label: r.label, Authority: r.authority, Lens: r.lens,
-    Soft: r.soft, Hard: r.hard, Sections: r.sections,
-  })), ['Type', 'Label', 'Authority', 'Lens', 'Soft', 'Hard', 'Sections']));
+    Soft: r.soft, Hard: r.hard, Sections: r.sections, From: r.source === 'project' ? 'yours' : '',
+  })), ['Type', 'Label', 'Authority', 'Lens', 'Soft', 'Hard', 'Sections', 'From']));
   say('');
-  say(`${shown.length} document class(es). Create one with: docgov create <type> "<name>"`);
+  const mine = shown.filter((r) => r.source === 'project').length;
+  say(`${shown.length} document class(es)${mine ? `, ${mine} defined by this project` : ''}. `
+    + 'Create one with: docgov create <type> "<name>"');
   return EXIT.OK;
 }

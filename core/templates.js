@@ -158,5 +158,8 @@ export function listTypes() {
     type: id, label: t.label, authority: t.authority, lens: t.lens,
     soft: t.soft || '', hard: t.hard || '', sections: (t.sections || []).length,
     handwritten: exists(path.join(TEMPLATE_DIR, `${id}.md`)) ? 'yes' : '',
+    // Where the class came from. A reader looking at 61 classes needs to see at a glance
+    // which of them their own project invented.
+    source: t.custom ? 'project' : 'docgov',
   }));
 }

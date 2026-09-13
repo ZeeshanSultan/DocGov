@@ -66,6 +66,17 @@ with a migration note.
   action carries its `tier` in the JSON. The old Risk table is gone — it was the same fact,
   said twice.
 
+- **A project can define its own document classes**, in `.docgov/config.yaml` or in a policy
+  pack shared across an organization: id, label, authority, paths, required sections, limits,
+  visibility. They classify, create, template and check exactly like the shipped ones, and
+  `docgov types` marks them as yours. No taxonomy enumerates every project's needs, and until
+  now the only escape hatch was abstention — correct, and terminal.
+
+  Two rules keep it an extension rather than a hole: a custom class **cannot take the id of
+  one DocGov ships**, and **`paths` is required**. A class with no path evidence could only be
+  guessed at from prose, and a document outside a custom class's paths still abstains rather
+  than being forced into the nearest one somebody invented.
+
 - **`docgov doctor` — is any of this actually working?** Fourteen checks, each of the form
   *does this file still agree with that one*: hooks naming events the CLI implements and
   pointing at files that exist, skills whose `name:` matches their directory, plugin options

@@ -123,6 +123,11 @@ commit real files, and run the real binary as a subprocess.
   running every command, the whole hook protocol and the plan writer against three real
   repositories on both builds and comparing the bytes. It found a path assumption the tests
   did not: `pluginRootOf` counted directories up from its caller.
+- **That an extension point is still a boundary.** Custom document classes are tested for what
+  they must refuse as much as what they allow: a shipped id, a malformed id, no paths, an
+  unknown authority tier, a hard limit below the soft one. And the abstain case is asserted in
+  the same test as the match, because a custom class that quietly became a catch-all would
+  pass every test that only checked it classifies its own documents.
 - **Both sides of a refusal.** `create` refusing a competing document is only worth having if
   it refuses the right ones, so the tests assert the false-positive side as hard as the true
   one: a narrower name is reported and still written, an unrelated name is written silently,

@@ -50,7 +50,19 @@ export const RELATIONSHIPS = {
   generated_from:{ inverse: 'generates' },
   exposes:       { inverse: 'exposed_by' },
   documents:     { inverse: 'documented_by' },
+  // A README that restates an architecture document, and a public document written from an
+  // internal one, are both derivations — the source moving ahead of them is a real finding,
+  // and one nothing could express before.
+  summarizes:       { inverse: 'summarized_by' },
+  public_version_of:{ inverse: 'has_public_version' },
 };
+
+/**
+ * Edges where one document is written *from* another. When the source moves and the
+ * derivative does not, the derivative is not merely unverified — it is describing something
+ * that has changed underneath it.
+ */
+export const DERIVATION_RELS = ['derived_from', 'generated_from', 'summarizes', 'public_version_of'];
 
 /** PRD §11 audience lenses. Files in lenses/ hold the reviewer prompts. */
 export const LENSES = ['readme', 'developer', 'architecture', 'security', 'user', 'agent', 'operations'];

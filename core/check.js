@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { blocks, limitFor, locationFor } from './config.js';
-import { TYPES, AUTHORITY, VISIBILITY, STATUS, typeDef } from './taxonomy.js';
+import { TYPES, AUTHORITY, VISIBILITY, STATUS, typeDef, RELATIONSHIPS } from './taxonomy.js';
 import { matchAny, matchGlob, EXIT } from './util.js';
 import { classify, destinationFor } from './classify.js';
 import { brokenLinks, brokenAnchors } from './links.js';
@@ -93,8 +93,9 @@ export function run({ root, cfg, docs, registry, graph, inv, only = null }) {
       if (idPattern && d.meta.id && !new RegExp(idPattern).test(d.meta.id))
         add('invalid-id', d, `id "${d.meta.id}" must match ${idPattern}`);
       for (const rel of Object.keys(d.relationships)) {
-        if (!['depends_on', 'defines', 'implements', 'derived_from', 'supersedes', 'references',
-          'validated_by', 'generated_from', 'exposes', 'documents'].includes(rel))
+        // Read the taxonomy rather than repeating it: this list had to be edited in step with
+        // RELATIONSHIPS, and a new edge type would otherwise be reported as invalid.
+        if (!Object.keys(RELATIONSHIPS).includes(rel))
           add('invalid-relationship', d, `"${rel}" is not a relationship in the taxonomy`);
       }
       if (cfg.profile?.require_owner && !d.owner && !inArchive)

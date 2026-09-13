@@ -1011,6 +1011,52 @@ test('cli: a scan that could not see everything says so', () => {
     'and CI must be able to see it too');
 });
 
+test('derivation: a published document whose source moved is reported, loudly', () => {
+  // "Check these still agree" is advice. "This was written from a document that has since
+  // changed" says the derivative is describing something that moved underneath it — and for
+  // a public document derived from an internal one, that is the case scanning published
+  // files for leaks can never catch.
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  wf(dir, 'docs/auth.md', '---\ndocgov:\n  id: auth-internal\n  type: architecture.domain\n'
+    + '  visibility: internal\n---\n# Auth\n\nVerified against issuer A.\n');
+  wf(dir, 'public/auth-public.md', '---\ndocgov:\n  id: auth-public\n  type: user.guide\n'
+    + '  visibility: public\n  relationships:\n    public_version_of: [auth-internal]\n'
+    + '---\n# Authentication\n\nHow tokens work.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  commit(dir);
+
+  fs.appendFileSync(path.join(dir, 'docs/auth.md'), '\nNow verified against issuer B.\n');
+  commit(dir);
+
+  const r = cli(dir, ['stale', '--base', 'HEAD~1']);
+  assert.match(r.out, /derivation/, 'the finding names the kind');
+  assert.match(r.out, /public\/auth-public\.md/, 'and the derivative');
+  assert.match(r.out, /public version of auth-internal, which changed after it/,
+    'and says which relationship, in words');
+  assert.match(r.out, /HIGH/, 'a published derivative is not a low-severity note');
+});
+
+test('relationships: a new edge type is valid without editing two lists', async () => {
+  // check.js repeated the relationship list instead of reading the taxonomy, so adding an
+  // edge type made every use of it report as an invalid relationship.
+  const tax = await import('../core/taxonomy.js');
+  for (const rel of tax.DERIVATION_RELS) {
+    assert.ok(rel in tax.RELATIONSHIPS, `${rel} must be a declared relationship`);
+    assert.ok(tax.RELATIONSHIPS[rel].inverse, `${rel} must have an inverse`);
+  }
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  wf(dir, 'docs/a.md', '---\ndocgov:\n  id: a\n  type: architecture.domain\n---\n# A\n\nbody\n');
+  wf(dir, 'docs/b.md', '---\ndocgov:\n  id: b\n  type: user.guide\n  relationships:\n'
+    + '    summarizes: [a]\n---\n# B\n\nbody\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  const out = cli(dir, ['check', '--all']).out;
+  assert.doesNotMatch(out, /invalid-relationship/, 'summarizes must be accepted');
+});
+
 test('lifecycle: a superseded document is withheld from a context pack, and said so', () => {
   // A superseded document is usually still true about the past, which is what makes it
   // dangerous: nothing in its prose says it was replaced, so an agent reads it as current.

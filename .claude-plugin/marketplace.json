@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Your AI writes docs faster than anyone can check them. DocGov checks them.",
-    "version": "0.2.3"
+    "version": "0.2.4"
   },
   "plugins": [
     {
       "name": "docgov",
       "source": "./",
       "description": "Your AI writes docs faster than anyone can check them. DocGov checks them — catches stale docs, duplicate files, and docs that contradict your code. Claude Code plugin + CLI.",
-      "version": "0.2.3",
+      "version": "0.2.4",
       "category": "documentation",
       "keywords": [
         "documentation",

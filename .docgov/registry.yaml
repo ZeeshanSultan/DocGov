@@ -22,8 +22,8 @@ documents:
     registered_in: config
     title: Changelog
     owner: docgov
-    hash: ff8c98a1e01543d9
-    lines: 297
+    hash: 60e687c0d99e96cf
+    lines: 348
   code-of-conduct:
     path: CODE_OF_CONDUCT.md
     type: governance.code-of-conduct

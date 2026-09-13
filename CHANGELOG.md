@@ -13,6 +13,57 @@ with a migration note.
 
 Nothing yet.
 
+## [0.2.4] — 2026-09-13
+
+Classification. Across three repositories DocGov had never seen, 86-96% of
+documents had no classification anyone should act on — and the reason was not
+that the documents were unclear.
+
+    chainsaw     91% → 32% without a trustworthy classification
+    DefectDojo   96% →  3%
+    ShellPilot   66% → 59%   (no generated documentation site)
+
+Every newly-confident classification was checked by hand rather than inferred
+from a number moving.
+
+### Fixed
+
+- **Every location signal described DocGov's own canonical layout**, so
+  structural evidence fired only on a repository that had already adopted
+  DocGov — exactly not the case adoption is for. The Diátaxis names DocGov
+  already says it adopts, and the trees Hugo, Docusaurus and MkDocs generate
+  from, are now recognised, weighted below the canonical globs so an adopted
+  layout still wins on its own terms.
+- **Evidence was scored without regard to its kind.** Where a document sits and
+  what it is called are decisions somebody made about what it is; a regex
+  matching its prose is a guess. A correct path match scoring 54 and a branching
+  model misread as a runbook scoring 45 were indistinguishable under one
+  threshold. Structural evidence now decides trustworthiness; prose still scores
+  and can break a tie, but cannot carry a type alone. Measured across the three,
+  269 of 278 doubtful classifications rested on structural evidence and were
+  right, while the content-only ones were wrong.
+- **A filename pattern found somewhere in a path is a hint, not a decision.**
+  `integration` matches `docs/content/en/integrations/parsers/api/cobalt.md`,
+  which is a user's import guide. Treating that as structural made 188 documents
+  confidently wrong, which is worse than leaving them flagged.
+- **Ambiguity was measured against a rival that did not exist.** With one
+  candidate the gap was its own score, so an unrivalled classification scoring
+  11 was reported as a close call against nothing.
+
+### Added
+
+- **A generated documentation site is recognised, and never relocated.** A
+  content tree is, by the site's own configuration, the documentation a project
+  publishes, but its sections are named for readers — `ai-assistant/`,
+  `cli-reference/`, `errors/` — so no naming convention reaches them: one
+  repository had 363 such pages matching nothing at all. They are classified
+  from where they sit, and then left there, because a page's path inside a
+  content tree is its URL and the navigation, section indexes and inbound links
+  are built from it. Recognising them without anchoring them proposed moving 287
+  pages out of one tree, which does not tidy a site up — it publishes a
+  different one. DefectDojo's plan went from 291 proposed moves to 4, none of
+  them out of the content tree.
+
 ## [0.2.3] — 2026-09-13
 
 `docgov fix` could not produce a runnable plan on any of the three repositories

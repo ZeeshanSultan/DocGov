@@ -115,7 +115,7 @@ export function run({ root, cfg, docs, registry, graph, inv, only = null }) {
       const want = locationFor(cfg, d.type);
       const ok = want.endsWith('/') ? d.path.startsWith(want) : d.path === want;
       if (!ok) add('wrong-location', d, `a ${typeDef(d.type).label} belongs in ${want}`,
-        { fix: `docgov tag --apply`, destination: destinationFor(cfg, d.type, d.path) });
+        { fix: `docgov tag --apply`, destination: destinationFor(cfg, d.type, d.path, d) });
     }
 
     // Visibility paths (PRD §10)

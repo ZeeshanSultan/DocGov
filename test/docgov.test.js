@@ -858,6 +858,25 @@ test('cli: a single-document class keeps one holder and leaves the rest in place
   assert.equal(cli(dir, ['fix', '--dry-run']).code, 0, 'the plan must be runnable');
 });
 
+test('cli: one unreadable document does not stop the others being migrated', () => {
+  // `patchDocgov` re-parses the file it is annotating and threw, which aborted the entire
+  // run. Two files out of 299 stopped a whole repository's migration. `Document` already
+  // degrades this way — it records the error and carries on — and `fix` now matches it.
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  // a double-quoted scalar spanning two lines: legal YAML, outside this parser's subset
+  wf(dir, 'docs/broken.md', '---\ntitle: "Spans\ntwo lines"\n---\n\n# B\n\nOn a SEV-1, escalate to the rota.\n');
+  wf(dir, 'docs/fine.md', '# Fine\n\nOn a SEV-2, escalate to the on-call rota.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  cli(dir, ['review']);
+  const r = cli(dir, ['fix', '--dry-run']);
+  assert.equal(r.code, 0, 'the run must complete despite the unreadable document');
+  assert.match(r.out, /could not read their frontmatter/, 'and must say which it left alone');
+  assert.match(r.out, /docs\/broken\.md/, 'naming the document');
+  assert.doesNotMatch(r.out, /docs\/fine\.md\n\s+invalid/, 'the readable one is unaffected');
+});
+
 test('cli: test fixtures are not documentation', () => {
   // A README inside a fixture describes the fixture. Moving it out breaks the test that
   // resolves paths into that tree — ShellPilot's k8s tests do exactly that.

@@ -15,6 +15,12 @@ Everything above is authoritative and ordered: the most authoritative document i
 It replaces reading the documentation tree — that is the point, and it is why the pack is
 small.
 
+**Read the map first.** The six lines at the top say what governs this area, what you may not
+violate, which code is claimed, what is derived from what, what is already known to be stale,
+and where two documents play the same role. Nothing in it is an opinion; every entry points at
+a document below. `KNOWN STALE  unknown` means it could not be checked, not that nothing is
+stale.
+
 **The rules while you work in this area:**
 
 1. **Invariants are binding.** If one blocks your approach, the invariant wins. Changing it
@@ -33,6 +39,13 @@ small.
 
 5. **"Not included in full"** entries are real documents that did not fit the budget. Read
    them directly if your change touches what their headings describe.
+
+6. **A document listed under KNOWN STALE is a warning, not a lie.** It describes code that has
+   moved since it was last touched. Trust it about intent; verify it against the code before
+   trusting it about behaviour, and update it as part of your change.
+
+If the pack looks too thin or too wide, `docgov brief <topic> --explain` says what happened to
+every document it considered. Do not guess at it.
 
 After you change code here, run `/docgov:affected` to find out which of these documents you
 now owe an update.

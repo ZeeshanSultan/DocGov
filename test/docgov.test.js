@@ -314,6 +314,41 @@ test('links: broken internal links are detected, valid ones are not', () => {
   assert.deepEqual(broken.map((b) => b.target), ['missing.md']);
 });
 
+test('links: a link to a directory, a dotfile or a source file is not broken', () => {
+  // The inventory set holds tracked *files* only — no directories, and not every
+  // dotfile or source file. Trusting it alone reported 306 valid links as broken on a
+  // real repository, 287 of them plain links to directories.
+  const dir = tmpRepo();
+  fs.mkdirSync(path.join(dir, 'core', 'coverage'), { recursive: true });
+  wf(dir, 'core/coverage/gate.go', 'package coverage\n');
+  wf(dir, '.golangci.yml', 'run: {}\n');
+  const body = '# A\n\n[d](../core/) [dot](../.golangci.yml) [src](../core/coverage/gate.go) '
+    + '[line](../core/coverage/gate.go:43) [gone](../core/nope.go)\n';
+  wf(dir, 'docs/a.md', body);
+  const d = new Document(dir, 'docs/a.md', body);
+  // the fast-path set deliberately knows about none of them
+  const broken = brokenLinks([d], dir, new Set(['docs/a.md']));
+  assert.deepEqual(broken.map((b) => b.target), ['../core/nope.go'],
+    'only the target that genuinely does not exist may be reported');
+});
+
+test('links: permalink and repo-root conventions resolve, genuinely missing ones do not', () => {
+  // Measured on a 1,045-document repository: checking only the document-relative path
+  // reported 1,304 broken links, of which 277 were real.
+  const dir = tmpRepo();
+  fs.mkdirSync(path.join(dir, 'site', 'errors'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'core', 'malware'), { recursive: true });
+  wf(dir, 'site/errors/CHW-1001.md', '# 1001\n');
+  wf(dir, 'core/malware/index.go', 'package malware\n');
+  const body = '# I\n\n[permalink](./CHW-1001/) [root](core/malware/index.go) '
+    + '[rootline](core/malware/index.go:664) [gone](./CHW-9999/)\n';
+  wf(dir, 'site/errors/_index.md', body);
+  const d = new Document(dir, 'site/errors/_index.md', body);
+  const broken = brokenLinks([d], dir, new Set(['site/errors/_index.md']));
+  assert.deepEqual(broken.map((b) => b.target), ['./CHW-9999/'],
+    'only the permalink with no backing document may be reported');
+});
+
 // ───────────────────────────── size ─────────────────────────────
 
 test('size: line count alone never recommends a split', () => {

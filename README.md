@@ -89,6 +89,10 @@ Ring 1 blocks only what software can decide: duplicate ids, hand edits to genera
 unparseable frontmatter, internal documents in public paths, archive edits. How much of that
 blocks depends on the project mode — `solo` blocks three rules, `enterprise` blocks twelve.
 
+Adopting DocGov on a repository that already has documentation starts in `warn_only`, so the
+first build after switching it on does not fail over documentation that predates it. `init`
+says so, and says when to turn it off.
+
 ## Usage
 
 ```
@@ -170,7 +174,7 @@ examples/         policy packs (organizational governance)
 
 Organizational governance lives in [examples/policy-packs](examples/policy-packs/README.md).
 
-`npm test` runs 57 tests over the engine, including drift, migration, policy packs and the hook protocol
+`npm test` runs 59 tests over the engine, including drift, migration, policy packs and the hook protocol
 against real temporary git repositories.
 
 ## Licence

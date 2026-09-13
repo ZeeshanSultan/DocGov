@@ -35,7 +35,10 @@ export function migrate({ root, cfg, docs, planData, dryRun = false, include = [
       'migrate needs a git repository — without it a migration is not revertible. Run `git init` first, or pass --no-git to accept that risk.',
       EXIT.CONFIG);
     if (!git.isClean(root)) throw new DocGovError(
-      'the working tree has uncommitted changes. Commit or stash them so the migration is the only thing in the diff.',
+      ['the working tree has uncommitted changes, so a migration would not be separable from them:',
+        ...git.dirtyPaths(root).slice(0, 10).map((p) => `  ${p}`),
+        'Commit or stash these first — `git add -A && git commit -m "chore: adopt DocGov"` is usually what is wanted.',
+      ].join('\n'),
       EXIT.CONFIG);
   }
 

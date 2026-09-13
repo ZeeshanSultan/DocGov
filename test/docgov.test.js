@@ -559,6 +559,33 @@ test('cli: init → create → check is a clean cycle', () => {
   assert.deepEqual(d.missingSections(), [], 'the template must satisfy its own required sections');
 });
 
+test('cli: adopting DocGov on an existing repository does not fail CI on day one', () => {
+  const dir = tmpRepo();
+  wf(dir, 'CODEOWNERS', '* @team\n');                       // forces team mode
+  wf(dir, 'README.md', '# T\n\nno frontmatter, predates DocGov\n');
+  wf(dir, 'ARCHITECTURE.md', '# A\n\ncomponents and boundaries\n');
+  commit(dir);
+  const init = cli(dir, ['init']);
+  assert.equal(init.code, 0);
+  assert.match(init.out, /warn_only is on/, 'the ramp must be visible, not silent');
+  assert.equal(cli(dir, ['check']).code, EXIT.OK,
+    'documentation that predates governance must not fail the first build');
+
+  // ...and turning the ramp off restores enforcement.
+  const cfgPath = path.join(dir, '.docgov/config.yaml');
+  fs.writeFileSync(cfgPath, fs.readFileSync(cfgPath, 'utf8').replace(/\s*warn_only: true\n/, '\n'));
+  assert.equal(cli(dir, ['check']).code, EXIT.VIOLATION,
+    'team mode blocks missing frontmatter once the ramp is removed');
+});
+
+test('cli: a fresh repository with no pre-existing documents enforces immediately', () => {
+  const dir = tmpRepo();
+  wf(dir, 'CODEOWNERS', '* @team\n');
+  commit(dir);
+  const init = cli(dir, ['init']);
+  assert.doesNotMatch(init.out, /warn_only/, 'there is nothing to ramp up from');
+});
+
 test('cli: check exits 1 on a blocking violation and 0 once it is fixed', () => {
   const dir = tmpRepo();
   wf(dir, 'package.json', '{"name":"t"}');

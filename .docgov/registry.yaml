@@ -7,7 +7,7 @@ documents:
     visibility: internal
     title: "DocGov — Technical Feasibility Assessment"
     owner: docgov
-    hash: d2ab7fb4df2d4564
+    hash: f2b03deefdfb4a22
     lines: 232
     relationships:
       implements:
@@ -35,8 +35,8 @@ documents:
     authority: audience
     visibility: public
     title: DocGov
-    hash: e09b05fc52e44622
-    lines: 180
+    hash: 00fdcd2e0b2e5199
+    lines: 184
   schemas-config:
     path: schemas/config.json
     type: contract.schema

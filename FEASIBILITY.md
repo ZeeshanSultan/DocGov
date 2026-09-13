@@ -223,7 +223,7 @@ verdict above is now exercised by a test or a command, not asserted:
   failure — also a passing test.
 - Policy packs (§6's V3 answer) merge under local config, with the repository keeping the last word.
 
-`npm test` — 57 tests, all passing.
+`npm test` — 59 tests, all passing.
 
 ---
 

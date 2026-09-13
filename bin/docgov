@@ -126,11 +126,21 @@ function cmdInit() {
   const layout = flags.layout || (i.documents.length > 25 ? 'full' : 'compact');
   const visibility = flags.visibility || (exists(path.join(root, 'LICENSE')) ? 'mixed' : 'internal');
 
+  // Adoption ramp: a repository with documentation that predates DocGov would otherwise
+  // fail CI the moment governance is switched on, which is how a governance tool earns
+  // its uninstall. Start in warn-only and tell the user when to turn it off.
+  const preexisting = i.documents.filter((d) => !d.frontmatter?.docgov).length;
+  const warnOnly = preexisting > 0 && mode !== 'solo';
+
   const raw = {
     version: 1,
     project: { name: projectName(root), mode, visibility, layout },
     documentation: { root: 'docs' },
-    governance: { canonical_changes_require_review: mode !== 'solo', prevent_duplicate_domains: true },
+    governance: {
+      canonical_changes_require_review: mode !== 'solo',
+      prevent_duplicate_domains: true,
+      ...(warnOnly ? { warn_only: true } : {}),
+    },
     drift: { enabled: true },
     generated: { allow_manual_edit: false },
     domains: {},
@@ -162,9 +172,19 @@ function cmdInit() {
   for (const m of made.slice(0, 12)) say(`  ${m}`);
   if (made.length > 12) say(`  … and ${made.length - 12} more namespaces`);
   say('');
+  if (warnOnly) {
+    say(`warn_only is on because ${preexisting} document(s) predate DocGov — nothing will block yet.`);
+    say('Run `docgov onboard`, migrate, then remove `warn_only` from .docgov/config.yaml.');
+    say('');
+  }
   say(i.documents.length > 2
     ? 'Next: `docgov onboard` to classify what is already here.'
     : 'Next: `docgov create user.readme` or `docgov check`.');
+  if (git.isRepo(root) && !git.isClean(root)) {
+    say('');
+    say('Commit this setup before migrating — `migrate` needs a clean tree so it stays revertible:');
+    say('  git add -A && git commit -m "chore: adopt DocGov"');
+  }
   return EXIT.OK;
 }
 

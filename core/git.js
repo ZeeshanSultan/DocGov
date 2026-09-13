@@ -33,6 +33,15 @@ export function isClean(root, { ignore = ['.docgov/'] } = {}) {
   });
 }
 
+/** Paths with uncommitted changes, excluding DocGov's own state. */
+export function dirtyPaths(root, { ignore = ['.docgov/'] } = {}) {
+  if (!isRepo(root)) return [];
+  return git(root, ['status', '--porcelain'], { allowFail: true })
+    .split('\n').filter(Boolean)
+    .map((line) => line.slice(3).replace(/^"|"$/g, ''))
+    .filter((p) => !ignore.some((prefix) => p.startsWith(prefix)));
+}
+
 export function currentBranch(root) {
   return git(root, ['rev-parse', '--abbrev-ref', 'HEAD'], { allowFail: true }) || 'HEAD';
 }

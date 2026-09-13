@@ -28,6 +28,8 @@ import { find } from '../core/find.js';
 import { pack, compile, render } from '../core/context.js';
 import { whoOwns } from '../core/responsibility.js';
 import * as judgemod from '../core/judgements.js';
+import * as onboardmod from '../core/onboard.js';
+import * as migratemod from '../core/migrate.js';
 import { EXIT } from '../core/util.js';
 
 const BIN = fileURLToPath(new URL('../bin/docgov', import.meta.url));
@@ -1626,4 +1628,61 @@ test('a judgement cannot reach the write gate a hook enforces', () => {
   const r = spawnSync(process.execPath, [BIN, 'hook', 'pre-tool'], { input, encoding: 'utf8', cwd: dir });
   assert.equal(r.status, EXIT.OK);
   assert.ok(!/deny/i.test(r.stdout), 'a model verdict must not become a write denial');
+});
+
+// --- the plan is grouped by how much of it you have to read -------------------------
+
+test('plan: the tier says what has to be decided, not what kind of action it is', () => {
+  const t = (a) => onboardmod.tierOf(a);
+  assert.equal(t({ kind: 'ANNOTATE', requiresJudgement: false }), 'safe');
+  assert.equal(t({ kind: 'CREATE', requiresJudgement: false }), 'safe');
+  assert.equal(t({ kind: 'MOVE', requiresJudgement: false }), 'confident');
+  assert.equal(t({ kind: 'ARCHIVE', requiresJudgement: false }), 'confident');
+  // A move whose classification was not clear is the same operation and a different question.
+  assert.equal(t({ kind: 'MOVE', requiresJudgement: true }), 'review');
+  // Prose rewrites are never mechanical, whatever their flags say.
+  assert.equal(t({ kind: 'SPLIT', requiresJudgement: false }), 'review');
+  assert.equal(t({ kind: 'MERGE', requiresJudgement: false }), 'review');
+  assert.equal(t({ kind: 'EXTRACT', requiresJudgement: false }), 'review');
+});
+
+test('plan: every action lands in exactly one tier, and the counts add up', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# Thing\n\nA thing.\n');
+  wf(dir, 'notes/install.md', '# Installing\n\n## Steps\n\n1. Run it.\n');
+  wf(dir, 'notes/api.md', '# API reference\n\n## GET /things\n\nReturns things.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  cli(dir, ['review']);
+  const plan = JSON.parse(fs.readFileSync(path.join(dir, '.docgov/fix-plan.json'), 'utf8'));
+
+  for (const a of plan.actions) assert.ok(['safe', 'confident', 'review'].includes(a.tier), `${a.kind} has tier ${a.tier}`);
+  assert.equal(plan.summary.safe + plan.summary.confident + plan.summary.review, plan.actions.length);
+
+  // The rendered plan leads with the shape, before the list a reader would otherwise have to
+  // walk line by line to size up.
+  const md = fs.readFileSync(path.join(dir, '.docgov/fix-plan.md'), 'utf8');
+  assert.match(md, /SAFE\s+\d+/);
+  assert.match(md, /HIGH CONFIDENCE\s+\d+/);
+  assert.match(md, /NEEDS REVIEW\s+\d+/);
+});
+
+test('plan: the review tier does not claim fix will skip a move it actually runs', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# Thing\n\nA thing.\n');
+  wf(dir, 'notes/thing.md', '# Thing notes\n\nSome prose with no strong signal either way.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  cli(dir, ['review']);
+  const plan = JSON.parse(fs.readFileSync(path.join(dir, '.docgov/fix-plan.json'), 'utf8'));
+  const reviewMoves = plan.actions.filter((a) => a.tier === 'review' && a.kind === 'MOVE');
+  if (!reviewMoves.length) return;   // nothing to assert about on this fixture
+
+  // `migrate` runs every MOVE regardless of the classification behind it, so a plan that
+  // said otherwise would be telling the reader something false about their own repository.
+  const md = fs.readFileSync(path.join(dir, '.docgov/fix-plan.md'), 'utf8');
+  assert.match(md, /`fix` will still move these/);
+  const dry = migratemod.migrate({ root: dir, cfg: cfgmod.load(dir).cfg, docs: snapshot(dir).docs, planData: plan, dryRun: true });
+  const ops = JSON.stringify(dry);
+  for (const a of reviewMoves) assert.ok(ops.includes(a.to), `${a.path} is executed by fix and the plan must say so`);
 });

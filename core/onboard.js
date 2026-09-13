@@ -210,6 +210,8 @@ export function plan({ root, cfg, docs, inv, graph, registry }) {
     a.id = `DG-${String(h % 100000).padStart(5, '0')}`;
   }
 
+  for (const a of actions) a.tier = tierOf(a);
+
   const summary = {
     documents: docs.length,
     unclassified: classifications.filter((c) => c.proposed === 'unknown').length,
@@ -226,6 +228,9 @@ export function plan({ root, cfg, docs, inv, graph, registry }) {
     duplicateCandidates: duplicates.length,
     needJudgement: actions.filter((a) => a.requiresJudgement).length,
     highRisk: actions.filter((a) => a.risk === 'high').length,
+    safe: actions.filter((a) => a.tier === 'safe').length,
+    confident: actions.filter((a) => a.tier === 'confident').length,
+    review: actions.filter((a) => a.tier === 'review').length,
   };
 
   return {
@@ -240,6 +245,39 @@ export function plan({ root, cfg, docs, inv, graph, registry }) {
   };
 }
 
+/**
+ * How much of itself a reader has to check.
+ *
+ * A two-thousand-line plan presented as one list reads as "this tool wants to rewrite my
+ * repository", and the reader cannot tell the mechanical nine tenths from the tenth that
+ * needs them without going line by line. The question they are actually asking is not "what
+ * kind of action is this" — it is "do I have to decide anything about it".
+ *
+ *   safe       nothing moves. Frontmatter added, documents created. Reversible by deleting.
+ *   confident  a file moves, and DocGov is sure where to. Reversible, but visible in the diff
+ *              and in anything holding a path — so it is worth a glance even though nothing
+ *              here is a guess.
+ *   review     somebody has to decide. A classification with no clear winner, or prose that
+ *              has to be rewritten. `fix` never does these on its own.
+ *
+ * The tier is derived, not declared: `requiresJudgement` was already on every action and the
+ * kinds that rewrite prose were already known. Nothing here changes what `fix` executes.
+ */
+export function tierOf(a) {
+  if (a.requiresJudgement) return 'review';
+  if (a.kind === 'SPLIT' || a.kind === 'MERGE' || a.kind === 'EXTRACT') return 'review';
+  if (a.kind === 'MOVE' || a.kind === 'ARCHIVE') return 'confident';
+  return 'safe';
+}
+
+export const TIERS = [
+  ['safe', 'Safe', 'Nothing moves. Frontmatter added, missing documents created. `docgov fix` does all of this, and undoing it means deleting what it wrote.'],
+  ['confident', 'High confidence', 'Files move to the canonical position for their class, and every internal link that pointed at them is repaired in the same commit. `docgov fix` does these too. Nothing here is a guess — but a path is a thing other software remembers, so read the list.'],
+  ['review', 'Needs review', 'DocGov could not settle these on its own. Two different things live here, and they behave differently:\n\n'
+    + '- **Moves and classifications** — `docgov fix` **will** carry these out. What is uncertain is not the operation but what the document *is*: no signal won clearly. Check them, or delete the ones you disagree with from this plan before running `fix`.\n'
+    + '- **Splits, merges and extractions** — prose has to be rewritten, so `fix` never does them on its own. They need `--include split,merge,extract`, and even then one at a time.'],
+];
+
 function stripFile(p) { return p.replace(/\.mdx?$/, ''); }
 
 /** The human-readable plan. This is the artifact the user approves. */
@@ -252,6 +290,15 @@ export function render(planData, cfg) {
   L.push('');
   L.push('**Nothing has changed yet.** This plan is a proposal. Edit it freely — delete any action you');
   L.push('disagree with — then run `docgov fix` to execute exactly what remains.');
+  L.push('');
+  L.push('```');
+  L.push(`SAFE             ${String(s.safe).padStart(4)}  frontmatter and new documents; nothing moves`);
+  L.push(`HIGH CONFIDENCE  ${String(s.confident).padStart(4)}  files move to their canonical place, links repaired`);
+  L.push(`NEEDS REVIEW     ${String(s.review).padStart(4)}  DocGov was not sure; read these before running \`fix\``);
+  L.push('```');
+  L.push('');
+  L.push('The first two are mechanical and reversible: run them and move on. The third is the part');
+  L.push('that is actually asking you something.');
   L.push('');
 
   if (!planData.git.repo) {
@@ -289,12 +336,21 @@ export function render(planData, cfg) {
     ['CREATE', 'Missing documents', 'The repository implies these should exist.'],
     ['CLASSIFY', 'Needs classification', 'No signal matched. Tell DocGov what these are.'],
   ];
+  for (const [tier, tierTitle, tierBlurb] of TIERS) {
+    const inTier = planData.actions.filter((a) => (a.tier || tierOf(a)) === tier);
+    if (!inTier.length) continue;
+    L.push(`# ${tierTitle} (${inTier.length})`);
+    L.push('');
+    L.push(tierBlurb);
+    L.push('');
   for (const [kind, title, blurb] of groups) {
-    const items = planData.actions.filter((a) => a.kind === kind);
+    const items = inTier.filter((a) => a.kind === kind);
     if (!items.length) continue;
     L.push(`## ${title} (${items.length})`);
     L.push('');
-    L.push(blurb);
+    L.push(tier === 'review' && (kind === 'MOVE' || kind === 'ARCHIVE')
+      ? 'The destination follows from a classification no signal won clearly. `fix` will still move these — the reason each was classified as it was is on every line.'
+      : blurb);
     L.push('');
     for (const a of items) {
       if (kind === 'MOVE' || kind === 'ARCHIVE') L.push(`- \`${a.id}\` \`${a.path}\` → \`${a.to}\`  \n  ${a.reason}`);
@@ -308,6 +364,7 @@ export function render(planData, cfg) {
       else L.push(`- \`${a.path}\` — ${a.reason}`);
     }
     L.push('');
+  }
   }
 
   if (planData.contradictionCandidates.length) {
@@ -341,15 +398,7 @@ export function render(planData, cfg) {
     L.push('');
   }
 
-  L.push('## Risk');
-  L.push('');
-  L.push(table([
-    { Risk: 'low', Actions: planData.actions.filter((a) => a.risk === 'low').length, Meaning: 'mechanical, fully reversible' },
-    { Risk: 'medium', Actions: planData.actions.filter((a) => a.risk === 'medium').length, Meaning: 'correct destination is a judgement call' },
-    { Risk: 'high', Actions: planData.actions.filter((a) => a.risk === 'high').length, Meaning: 'content must be rewritten; never automatic' },
-  ], ['Risk', 'Actions', 'Meaning']));
-  L.push('');
-  L.push(`${s.needJudgement} of ${planData.actions.length} actions need a human or an agent to decide something.`);
+  L.push(`${s.review} of ${planData.actions.length} actions need a human or an agent to decide something.`);
   L.push('');
   L.push('## Execute');
   L.push('');

@@ -110,6 +110,10 @@ commit real files, and run the real binary as a subprocess.
   and `deterministic: true` written into it is loaded, flattened, and must still leave the
   exit code at 0. This is the one test that guards the separation the whole product rests on,
   and the failure it catches is silent: everything still renders, just in the wrong column.
+- **That a presentation change still describes the code.** The plan's "needs review" tier is
+  asserted against what `migrate` actually executes, not against the wording alone. A tier
+  that said `fix` would skip a move it in fact performs would be a lie no test of the renderer
+  on its own could catch.
 - **Both sides of a refusal.** `create` refusing a competing document is only worth having if
   it refuses the right ones, so the tests assert the false-positive side as hard as the true
   one: a narrower name is reported and still written, an unrelated name is written silently,

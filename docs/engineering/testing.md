@@ -133,6 +133,11 @@ commit real files, and run the real binary as a subprocess.
   appears in the audience prompt, and that neither can block a write. Prompts are the one part
   of the system with no other test — nothing fails when a prompt quietly loses the sentence
   that made it conservative.
+- **A detector's silence, as hard as its findings.** Competing-responsibility clustering is
+  tested on what it must *not* report: two documents sharing the word "setup" that are about
+  different things, two unclassified documents, and a pair whose relationship is already
+  declared. A detector is only as useful as its false-positive rate, and the first version of
+  this one returned a single cluster of 900 files while passing every test of what it found.
 - **Both sides of a refusal.** `create` refusing a competing document is only worth having if
   it refuses the right ones, so the tests assert the false-positive side as hard as the true
   one: a narrower name is reported and still written, an unrelated name is written silently,

@@ -33,6 +33,7 @@ import * as migratemod from '../core/migrate.js';
 import * as doctormod from '../core/doctor.js';
 import * as tax from '../core/taxonomy.js';
 import * as lensmod from '../core/lenses.js';
+import * as competingmod from '../core/competing.js';
 import { EXIT } from '../core/util.js';
 
 const BIN = fileURLToPath(new URL('../bin/docgov', import.meta.url));
@@ -1966,4 +1967,78 @@ test('the two model reviews are two prompts, each stating its own tolerance', ()
 
   // Neither may ever block a write.
   for (const p of prompts) assert.equal(p.continueOnBlock, true);
+});
+
+// --- competing for one responsibility, which is not the same as similar text --------
+
+function guides(dir) {
+  const setup = 'Clone the repository, run npm install, copy .env.example to .env, then npm run dev '
+    + 'to start the development server on port 3000.';
+  const guide = (id, title, body) => `---\ndocgov:\n  id: ${id}\n  type: user.guide\n---\n# ${title}\n\n`
+    + `## Goal\n\n${body}\n\n## Steps\n\n1. Clone\n2. Install\n\n## Verification\n\nIt runs.\n\n## Related\n\nNone.\n`;
+  wf(dir, 'README.md', '# Thing\n\nA thing.\n');
+  wf(dir, 'docs/guides/local-setup.md', guide('setup-a', 'Local setup', setup));
+  wf(dir, 'docs/guides/dev-setup.md', guide('setup-b', 'Developer setup guide', `${setup} Also install docker.`));
+  wf(dir, 'docs/guides/billing.md', guide('billing', 'Billing', 'Invoices, proration, tax rates and subscription changes.'));
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  return dir;
+}
+
+test('competing: two guides owning one subject are found; an unrelated one is not', () => {
+  const dir = guides(tmpRepo());
+  const groups = competingmod.competing({ docs: snapshot(dir).docs });
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0].paths, ['docs/guides/dev-setup.md', 'docs/guides/local-setup.md']);
+  assert.equal(groups[0].topic, 'setup');
+  assert.equal(groups[0].lens, 'user');
+});
+
+test('competing: a stated relationship is the opposite of an undeclared competition', () => {
+  const dir = guides(tmpRepo());
+  const file = path.join(dir, 'docs/guides/dev-setup.md');
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8')
+    .replace('  type: user.guide', '  type: user.guide\n  relationships:\n    derived_from:\n      - setup-a'));
+  assert.deepEqual(competingmod.competing({ docs: snapshot(dir).docs }), []);
+});
+
+test('competing: a name needs a body behind it, and a body needs a name', () => {
+  const dir = guides(tmpRepo());
+  const docs = snapshot(dir).docs;
+
+  // Name alone is not enough. Two documents both called "setup" that are about different
+  // things are two documents about different things.
+  wf(dir, 'docs/guides/dns-setup.md', '---\ndocgov:\n  id: dns\n  type: user.guide\n---\n# DNS setup\n\n'
+    + '## Goal\n\nDelegate the zone, add the CAA record, wait for propagation.\n\n## Steps\n\n1. Delegate\n\n'
+    + '## Verification\n\ndig returns the record.\n\n## Related\n\nNone.\n');
+  commit(dir);
+  const withDns = competingmod.competing({ docs: snapshot(dir).docs });
+  assert.ok(!withDns.some((g) => g.paths.includes('docs/guides/dns-setup.md')),
+    'sharing the word "setup" is not sharing a responsibility');
+
+  // Body alone is not enough either, and this is the measured reason: in a repository about
+  // one subject, documents that compete for nothing still score 0.23-0.43 against each other.
+  assert.ok(docs.length >= 3);
+});
+
+test('competing: an unclassified document is never reported, and neither is an organised one', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# Thing\n\nA thing.\n');
+  // Two documents with no classification: nothing has established what audience either has,
+  // and on a repository that has not adopted DocGov that is nearly every file. Treating them
+  // as one audience produced a single cluster holding most of the tree.
+  wf(dir, 'notes/a.md', '# Notes one\n\nSetup notes about installing and running the thing locally.\n');
+  wf(dir, 'notes/b.md', '# Notes two\n\nSetup notes about installing and running the thing locally.\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  assert.deepEqual(competingmod.competing({ docs: snapshot(dir).docs }), []);
+});
+
+test('check reports a competing cluster once, not once per pair', () => {
+  const dir = guides(tmpRepo());
+  const j = JSON.parse(cli(dir, ['check', '--all', '--json']).out);
+  const found = j.findings.filter((f) => f.check === 'competing-responsibility');
+  assert.equal(found.length, 1, 'three guides are one problem, not three pairs');
+  assert.deepEqual(found[0].others, ['docs/guides/local-setup.md']);
+  assert.equal(found[0].blocking, false, 'whether two documents should be one is a judgement call');
 });

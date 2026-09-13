@@ -13,6 +13,7 @@ import * as onboardmod from '../../core/onboard.js';
 import * as inv from '../../core/inventory.js';
 import * as ctxpack from '../../core/context.js';
 import * as healthmod from '../../core/health.js';
+import { competing } from '../../core/competing.js';
 import * as pubmod from '../../core/publish.js';
 import * as supp from '../../core/suppressions.js';
 import * as git from '../../core/git.js';
@@ -269,6 +270,23 @@ export function cmdInspect(flags) {
       a: excerpt(c.docs.find((d) => d.path === p.a)), b: excerpt(c.docs.find((d) => d.path === p.b)),
     }));
     emitOrPrint({ kind: 'contradictions', packets });
+    return EXIT.OK;
+  }
+  if (what === 'competing') {
+    // The deterministic half narrows; the model decides whether these should be one document,
+    // which depends on what they say and is not decidable here. Whatever it concludes goes
+    // back through `docgov judge`, where a verdict stays visibly a verdict.
+    const groups = competing({ docs: c.docs, limit: parseInt(flags.limit || '10', 10) });
+    const packets = groups.map((g) => ({
+      topic: g.topic, lens: g.lens, why: g.why,
+      documents: g.documents.map((d) => ({ ...d, excerpt: excerpt(c.docs.find((x) => x.path === d.path), 1200) })),
+      question: 'Are these one responsibility split across several documents, or several '
+        + 'responsibilities that happen to share vocabulary? If one, say which should own it '
+        + 'and what becomes of the others. Record the verdict with '
+        + '`docgov judge --file - --agent inspect`, check "competing-responsibility", '
+        + 'with what you read as the evidence.',
+    }));
+    emitOrPrint({ kind: 'competing', packets });
     return EXIT.OK;
   }
   if (what === 'quality') {

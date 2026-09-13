@@ -66,6 +66,15 @@ with a migration note.
   action carries its `tier` in the JSON. The old Risk table is gone — it was the same fact,
   said twice.
 
+- **`check` reports competing sources of truth**, which is a different problem from
+  near-duplicate text. Three setup guides written independently do not read alike — that is
+  why they compete — and the near-copy check at 55% overlap found mostly deliberate copies. A
+  cluster needs the same audience, a distinctive shared name word, corroborating body
+  vocabulary, and no stated relationship or organising index between them. Advisory, never
+  blocking: whether two documents should be one is a judgement call.
+- **`docgov inspect competing`** hands those clusters to a model with excerpts attached; the
+  verdict comes back through `docgov judge`.
+
 - **Audience review and leak detection are two reviews, not one prompt.** They are different
   questions with opposite false-positive tolerances — a wrong audience finding costs an
   argument about prose, a missed leak publishes a secret — so they have separate prompts,

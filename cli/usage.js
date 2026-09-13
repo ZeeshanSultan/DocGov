@@ -32,7 +32,7 @@ Every day
 When something is off
   stale [--base REF]                         docs the code moved out from under
   health                                     score your docs out of 100, and what is missing
-  inspect <stale|contradictions|quality>     build a review packet for an agent to read
+  inspect <stale|contradictions|quality|competing>  build a review packet for an agent to read
   tag [--apply] [--path P]                   add missing frontmatter
   rules [--for paths]                        the rules your docs declare, and the code they govern
   ignore <ID> --reason "..." [--expires D]   record a deliberate exception

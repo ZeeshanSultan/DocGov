@@ -326,6 +326,44 @@ docgov ignore --remove DRIFT-20828
 **Writes:** `.docgov/suppressions.yaml`. Suppressed findings stay visible in `ignore list` and
 in every report. Expired ones get their own section in `check`. Nothing disappears quietly.
 
+### Competing sources of truth
+
+`check` reports a `competing-responsibility` finding when several documents own one subject for
+one audience and none of them says how it relates to the others. `docgov inspect competing`
+gives the same clusters to a model with excerpts attached, and the model records what it
+concludes with `docgov judge`.
+
+This is a different question from the `duplicate-candidate` finding beside it. That one looks
+for near-copies at 55% textual overlap; on a real repository its strongest hits were almost all
+deliberate. Three setup guides written independently by people who did not know the others
+existed do **not** read alike — that is exactly why they compete.
+
+A cluster needs all four of:
+
+- **the same audience** — the lens the class implies. Nothing is compared across lenses, and an
+  unclassified document is never compared at all, because nothing has established its audience.
+- **a distinctive shared name word**, after the class label and any word common across the
+  repository are stripped out. (On this project, "docgov" appears everywhere and says nothing.)
+- **shared vocabulary in the bodies** to corroborate it.
+- **no stated relationship** between them, and no index organising their directory. A parent
+  index and its parts are not competing; somebody already wrote down how they relate.
+
+The name and the body are both required, and that is a measured decision rather than a cautious
+one. In a repository about one subject, everything is about that subject: on DocGov's own
+documentation, CONTRIBUTING and the testing strategy score 0.283 against each other, the README
+and the command reference 0.433, and none of those pairs competes for anything. No threshold on
+body similarity alone separates a duplicated responsibility from a legitimately distinct
+document.
+
+**Known limit:** two documents covering one subject under entirely different names — "Local
+setup" and "Setting up locally" share no word at all — are not found. Catching them would need
+body similarity to decide on its own, and the numbers above show it cannot. A missed duplicate
+costs a duplicate; a detector calling the README and the command reference rivals would cost the
+feature its credibility.
+
+Whether two documents *should* be one is never decided here. Two guides for two audiences may be
+exactly right, so the finding is advisory and never blocks.
+
 ### Choosing what gets reviewed
 
 Two model reviews run on a documentation write, and they are two different questions:

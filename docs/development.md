@@ -33,7 +33,8 @@ npm test       # the engine suite
 
 ## Setup
 
-Nothing to set up. `core/` is plain ESM and `bin/docgov` imports it directly.
+Nothing to set up. `core/` is plain ESM, `cli/` is the command layer, and `bin/docgov` is a
+dispatcher that imports both directly.
 
 To run your working copy as the plugin inside Claude Code:
 

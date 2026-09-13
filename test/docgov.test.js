@@ -1791,3 +1791,15 @@ test('doctor exits 0 clean, 2 on something to look at, and reports on an ungover
   assert.equal(j.counts.fail, 0);
   assert.ok(j.checks.every((c) => ['ok', 'warn', 'fail'].includes(c.status)));
 });
+
+test('doctor: a source directory missing from package.json files is caught', () => {
+  const repo = tmpRepo();
+  const dir = fakePlugin();
+  // Exactly what splitting the CLI nearly shipped: a binary importing a directory the
+  // published tarball does not contain. Only an install would have shown it.
+  wf(dir, 'package.json', JSON.stringify({ version: '1.0.0', files: ['bin', 'core'] }));
+  wf(dir, 'cli/parse.js', '// something the binary imports\n');
+  const c = doctormod.run({ root: repo, pluginRoot: dir, env: {} }).checks.find((x) => x.id === 'package-files');
+  assert.equal(c.status, 'fail');
+  assert.match(c.message, /cli/);
+});

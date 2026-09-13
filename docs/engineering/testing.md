@@ -44,6 +44,9 @@ commit real files, and run the real binary as a subprocess.
 - **Every template against its own gate.** The test *every document class produces a document
   that satisfies its own gate* is what keeps every class honest — adding a class with mismatched
   sections fails immediately.
+- **That one bad document does not stop the rest.** A migration containing a document whose
+  frontmatter the parser refuses still completes, still reports which it left alone, and does
+  not touch the readable ones.
 - **That a plan is runnable.** Two documents with one canonical destination get distinct
   paths rather than colliding, a fixed-path class keeps one holder and leaves the rest alone,
   and `fix --dry-run` exits 0 in both cases. The assertion that matters is the last one: a

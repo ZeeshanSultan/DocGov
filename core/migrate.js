@@ -30,6 +30,7 @@ export function migrate({ root, cfg, docs, planData, dryRun = false, include = [
   const kinds = new Set([...MECHANICAL, ...include.map((k) => k.toUpperCase())]);
   const actions = planData.actions.filter((a) => kinds.has(a.kind));
   const ops = [];
+  const skipped = [];
 
   if (useGit && !dryRun) {
     if (!git.isRepo(root)) throw new DocGovError(
@@ -74,7 +75,13 @@ export function migrate({ root, cfg, docs, planData, dryRun = false, include = [
 
     let metaChanged = false;
     const ann = annotate.get(d.path);
-    if (ann) {
+    // A document whose frontmatter this parser will not read cannot be annotated — but it
+    // is one document, and aborting the run over it leaves every other document
+    // ungoverned. `Document` already degrades this way: it records the error and carries
+    // on. Two files out of 299 used to stop a whole repository's migration.
+    if (ann && d.error) {
+      skipped.push({ path: d.path, reason: d.error });
+    } else if (ann) {
       const c = classify(d);
       const type = ann.type && ann.type !== 'unknown' ? ann.type : c.type;
       if (type !== 'unknown') {
@@ -115,7 +122,7 @@ export function migrate({ root, cfg, docs, planData, dryRun = false, include = [
   const deferred = planData.actions.filter((a) => !kinds.has(a.kind));
 
   return {
-    dryRun, ops, deferred,
+    dryRun, ops, deferred, skipped,
     moved: ops.filter((o) => o.op === 'move').length,
     edited: ops.filter((o) => o.op === 'edit').length,
     linksRepaired: ops.filter((o) => o.rewroteLinks).length,

@@ -301,6 +301,14 @@ function cmdFix() {
   say('');
   say(`${result.moved} moved · ${result.edited} edited in place · ${result.annotated} annotated · ${result.linksRepaired} documents had links repaired`);
   if (branch) say(`Branch: ${branch}`);
+  if ((result.skipped || []).length) {
+    say('');
+    say(`Left alone — DocGov could not read their frontmatter (${result.skipped.length}):`);
+    for (const sk of result.skipped.slice(0, 10)) say(`  ${sk.path}\n    ${sk.reason}`);
+    if (result.skipped.length > 10) say(`  … and ${result.skipped.length - 10} more`);
+    say('Everything else was migrated. Fix the frontmatter and re-run to pick them up.');
+  }
+
   if (result.deferred.length) {
     say('');
     say(`Deferred to /docgov:tag (these rewrite prose, so an agent does them with you): ${result.deferred.length}`);

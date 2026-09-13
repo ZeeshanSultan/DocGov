@@ -1,0 +1,10 @@
+version: 1
+suppressions:
+  - id: DRIFT-20828
+    reason: "schemas/config.json is referenced directly from the README; a prose mirror of a JSON Schema would be a second source of truth"
+    created: 2026-09-13
+    expires: 2027-09-13
+  - id: DRIFT-30884
+    reason: "schemas/frontmatter.json is consumed by editors directly; a derived document would duplicate the schema"
+    created: 2026-09-13
+    expires: 2027-09-13

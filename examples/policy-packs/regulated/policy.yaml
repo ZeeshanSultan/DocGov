@@ -1,0 +1,64 @@
+# Organizational policy pack — DocGov V3 governance.
+#
+# A policy pack is a directory (committed, vendored, or a git submodule) referenced
+# from a repository's .docgov/config.yaml:
+#
+#   policy_packs:
+#     - ../org-policy/regulated
+#
+# Packs layer UNDER local config: the organization sets the floor, the repository
+# keeps the last word. That ordering is deliberate — a pack that could override a
+# repository would make every repository's config a lie, and teams would stop
+# reading it.
+#
+# There is no DocGov server. Distribution is whatever you already use for code:
+# a git repo, a submodule, or a plugin marketplace entry.
+
+version: 1
+
+project:
+  # Note: `docgov init` always writes a mode into the repository's own config, so this
+  # only takes effect where a repository has deliberately removed it. To make a mode
+  # mandatory, check it in CI rather than hoping the merge order enforces it:
+  #   test "$(docgov check --json | jq -r .stats.blocking)" != "null"
+  mode: enterprise
+
+governance:
+  canonical_changes_require_review: true
+  prevent_duplicate_domains: true
+  max_new_root_docs: 0
+
+# Tighter than the defaults: in a regulated context a security document that is
+# merely present is not enough.
+quality:
+  security.architecture: 98
+  security.threat-model: 98
+  security.authorization: 98
+  security.data-classification: 98
+  operations.disaster-recovery: 95
+  operations.runbook: 92
+  architecture.adr: 92
+
+limits:
+  security.threat-model:
+    soft_lines: 900
+    hard_lines: 1400
+  operations.runbook:
+    soft_lines: 300
+    hard_lines: 500
+
+# Additional protected paths on top of the built-in set.
+visibility_paths:
+  - glob: "docs/10-internal/**"
+    require: [internal, confidential]
+  - glob: "docs/11-external/**"
+    require: [public, generated-public]
+  - glob: "docs/04-security/**"
+    require: [internal, confidential]
+  - glob: "docs/compliance/**"
+    require: [confidential]
+
+drift:
+  enabled: true
+  stale_threshold: 45
+  fail_on: [critical, high, medium]

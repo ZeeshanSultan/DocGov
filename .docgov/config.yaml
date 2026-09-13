@@ -1,0 +1,47 @@
+version: 1
+project:
+  name: docgov
+  mode: solo
+  visibility: internal
+  layout: compact
+documentation:
+  root: docs
+  exclude:
+    - ".claude/**"
+    - ".docgov/**"
+    - "**/node_modules/**"
+    - "**/SKILL.md"
+    - "templates/**"
+    - "lenses/**"
+    - "rules/**"
+governance:
+  canonical_changes_require_review: false
+  prevent_duplicate_domains: true
+  # PRD.md and FEASIBILITY.md are this repository's own specification; they belong at the
+  # root alongside README.md, the same way a spec sits beside the thing it specifies.
+  allowed_root_docs:
+    - README.md
+    - CONTRIBUTING.md
+    - SECURITY.md
+    - CHANGELOG.md
+    - CLAUDE.md
+    - LICENSE.md
+    - PRD.md
+    - FEASIBILITY.md
+drift:
+  enabled: true
+generated:
+  allow_manual_edit: false
+domains:
+  governance:
+    paths:
+      - "core/check.js"
+      - "core/config.js"
+      - "core/taxonomy.js"
+    owner: docgov
+  drift:
+    paths:
+      - "core/drift.js"
+      - "core/impact.js"
+    owner: docgov
+

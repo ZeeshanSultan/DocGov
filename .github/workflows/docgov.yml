@@ -1,0 +1,54 @@
+name: Documentation governance
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  docgov:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # drift analysis needs history
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Deterministic rules. Exit 1 is a real violation and fails the build.
+      # Exit 2 is drift needing review and is surfaced, not failed, by default.
+      - name: Deterministic checks
+        id: check
+        run: |
+          set +e
+          docgov check --all
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit $(( code == 1 ? 1 : 0 ))
+        env:
+          PATH: ${{ github.workspace }}/bin:/usr/local/bin:/usr/bin:/bin
+
+      - name: Drift and impact
+        if: github.event_name == 'pull_request'
+        run: |
+          ./bin/docgov drift --base "origin/${{ github.base_ref }}" || true
+          ./bin/docgov manifest --pr --base "origin/${{ github.base_ref }}" > docgov-report.txt || true
+          cat docgov-report.txt
+
+      - name: Post the documentation review
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -s docgov-report.txt ]; then
+            gh pr comment "${{ github.event.number }}" --body-file docgov-report.txt --edit-last --create-if-none
+          fi
+
+      - name: Engine tests
+        run: npm test

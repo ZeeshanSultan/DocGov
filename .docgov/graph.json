@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "generated": "2026-09-13",
+  "nodes": [
+    {
+      "id": "docgov-feasibility",
+      "path": "FEASIBILITY.md",
+      "type": "architecture.assessment",
+      "authority": "decision",
+      "visibility": "internal",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 232,
+      "hash": "d2ab7fb4df2d4564",
+      "generated": false
+    },
+    {
+      "id": "docgov-prd",
+      "path": "PRD.md",
+      "type": "product.prd",
+      "authority": "requirements",
+      "visibility": "internal",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 1809,
+      "hash": "9d7de81ce1b419cd",
+      "generated": false
+    },
+    {
+      "id": "readme",
+      "path": "README.md",
+      "type": "user.readme",
+      "authority": "audience",
+      "visibility": "public",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 180,
+      "hash": "e09b05fc52e44622",
+      "generated": false
+    },
+    {
+      "id": "examples-policy-packs-readme",
+      "path": "examples/policy-packs/README.md",
+      "type": "docs.index",
+      "authority": "audience",
+      "visibility": "internal",
+      "domain": null,
+      "status": "active",
+      "kind": "document",
+      "lines": 57,
+      "hash": "43e78c1108d83d14",
+      "generated": false
+    },
+    {
+      "id": "schemas-config",
+      "path": "schemas/config.json",
+      "type": "contract.json-schema",
+      "authority": "machine-contract",
+      "visibility": "internal",
+      "domain": null,
+      "kind": "contract"
+    },
+    {
+      "id": "schemas-frontmatter",
+      "path": "schemas/frontmatter.json",
+      "type": "contract.json-schema",
+      "authority": "machine-contract",
+      "visibility": "internal",
+      "domain": null,
+      "kind": "contract"
+    },
+    {
+      "id": "code:governance",
+      "path": "core/check.js, core/config.js, core/taxonomy.js",
+      "type": "code.domain",
+      "authority": "implementation",
+      "visibility": "internal",
+      "domain": "governance",
+      "kind": "code",
+      "paths": [
+        "core/check.js",
+        "core/config.js",
+        "core/taxonomy.js"
+      ]
+    },
+    {
+      "id": "code:drift",
+      "path": "core/drift.js, core/impact.js",
+      "type": "code.domain",
+      "authority": "implementation",
+      "visibility": "internal",
+      "domain": "drift",
+      "kind": "code",
+      "paths": [
+        "core/drift.js",
+        "core/impact.js"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "docgov-feasibility",
+      "to": "docgov-prd",
+      "rel": "implements",
+      "inferred": false
+    },
+    {
+      "from": "docgov-prd",
+      "to": "docgov-feasibility",
+      "rel": "implemented_by",
+      "inferred": true
+    },
+    {
+      "from": "readme",
+      "to": "examples-policy-packs-readme",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "readme",
+      "to": "docgov-prd",
+      "rel": "references",
+      "inferred": true
+    },
+    {
+      "from": "readme",
+      "to": "docgov-feasibility",
+      "rel": "references",
+      "inferred": true
+    }
+  ]
+}

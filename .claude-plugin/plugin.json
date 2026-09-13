@@ -1,0 +1,30 @@
+{
+  "name": "docgov",
+  "displayName": "DocGov",
+  "version": "1.0.0",
+  "description": "Documentation governance for agentic development: taxonomy, authority graph, drift detection, and deterministic gates that run on every write.",
+  "author": { "name": "DocGov" },
+  "license": "MIT",
+  "keywords": ["documentation", "governance", "drift", "architecture", "adr", "docs-as-code"],
+  "hooks": "./hooks/hooks.json",
+  "userConfig": {
+    "enforcement": {
+      "type": "string",
+      "title": "Enforcement level",
+      "description": "Override the project mode's enforcement. 'repo' uses .docgov/config.yaml (recommended), 'warn' never blocks a write, 'strict' blocks every deterministic violation.",
+      "default": "repo"
+    },
+    "semantic_gate": {
+      "type": "boolean",
+      "title": "Semantic gate on new documents",
+      "description": "Run a fast model check on newly written documents for audience-lens and visibility problems. Adds roughly two seconds to creating a document; does nothing on edits.",
+      "default": true
+    },
+    "session_briefing": {
+      "type": "boolean",
+      "title": "Session briefing",
+      "description": "Inject the authoritative-document list at session start so agents know what they may not contradict.",
+      "default": true
+    }
+  }
+}

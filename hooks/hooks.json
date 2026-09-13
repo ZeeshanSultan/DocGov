@@ -1,0 +1,65 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/bin/docgov", "hook", "session-start"],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/bin/docgov", "hook", "pre-tool"],
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "prompt",
+            "if": "Write(**/*.md)",
+            "timeout": 20,
+            "continueOnBlock": true,
+            "prompt": "You are a documentation lens reviewer for a single file write. The tool input contains `file_path` and `content`.\n\nJudge ONLY these two things, which are decidable from the content and path alone. Everything structural is already enforced deterministically elsewhere — do not repeat it.\n\n1. AUDIENCE LENS MISMATCH. Does the content match the audience its location implies?\n   - a README, getting-started, tutorial or anything under a `user/`, `public/` or `08-user/` path must be task-oriented for its reader: no internal implementation dumps, no architecture essays, no unexplained internal jargon.\n   - anything under an `architecture/`, `03-architecture/` or `domains/` path must describe boundaries, responsibilities, data flows and trade-offs — not installation steps or tutorials.\n   - a runbook must be executable under pressure: numbered steps with expected results, not prose.\n\n2. VISIBILITY LEAK. If the path is public-facing (`README`, `SECURITY.md`, `CONTRIBUTING.md`, or anything under `public/`, `external/`, `11-external/`, `08-user/`), does the content contain internal hostnames, private IPs, credential-shaped strings, internal ticket ids, employee emails, or descriptions of unmitigated vulnerabilities?\n\nRespond with JSON only.\nIf both are fine: {\"ok\": true}\nIf not: {\"ok\": false, \"reason\": \"<which of the two problems, the specific lines or phrases at fault, and what to do instead>\"}\n\nBe conservative. A document that is merely terse, incomplete or unpolished is fine — say ok. Only flag a genuine audience mismatch or a genuine leak.\n\n$ARGUMENTS"
+          }
+        ]
+      }
+    ],
+
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/bin/docgov", "hook", "post-write"],
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/bin/docgov", "hook", "stop"],
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

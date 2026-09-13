@@ -1,0 +1,15 @@
+{
+  "name": "docgov",
+  "version": "1.0.0",
+  "description": "Documentation governance layer for agentic software development",
+  "type": "module",
+  "license": "MIT",
+  "bin": { "docgov": "./bin/docgov" },
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "docgov": "node ./bin/docgov"
+  },
+  "files": ["bin", "core", "templates", "lenses", "schemas", "rules"],
+  "dependencies": {}
+}

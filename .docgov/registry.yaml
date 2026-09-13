@@ -1,0 +1,51 @@
+version: 1
+documents:
+  docgov-feasibility:
+    path: FEASIBILITY.md
+    type: architecture.assessment
+    authority: decision
+    visibility: internal
+    title: "DocGov — Technical Feasibility Assessment"
+    owner: docgov
+    hash: d2ab7fb4df2d4564
+    lines: 232
+    relationships:
+      implements:
+        - docgov-prd
+  docgov-prd:
+    path: PRD.md
+    type: product.prd
+    authority: requirements
+    visibility: internal
+    title: PRD
+    owner: docgov
+    hash: 9d7de81ce1b419cd
+    lines: 1809
+  examples-policy-packs-readme:
+    path: examples/policy-packs/README.md
+    type: docs.index
+    authority: audience
+    visibility: internal
+    title: Policy packs
+    hash: 43e78c1108d83d14
+    lines: 57
+  readme:
+    path: README.md
+    type: user.readme
+    authority: audience
+    visibility: public
+    title: DocGov
+    hash: e09b05fc52e44622
+    lines: 180
+  schemas-config:
+    path: schemas/config.json
+    type: contract.schema
+    authority: machine-contract
+    visibility: internal
+    machine: true
+  schemas-frontmatter:
+    path: schemas/frontmatter.json
+    type: contract.schema
+    authority: machine-contract
+    visibility: internal
+    machine: true

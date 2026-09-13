@@ -1,0 +1,8 @@
+node_modules/
+.docgov/cache/
+.docgov/reports/
+*.log
+.DS_Store
+.kangentic/
+.claude/settings.local.json
+kangentic.local.json

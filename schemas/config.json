@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docgov.dev/schemas/config.json",
+  "title": "DocGov configuration",
+  "description": ".docgov/config.yaml — every governance decision is configurable here. A policy pack may set any of these; local config always wins.",
+  "type": "object",
+  "required": ["version", "project"],
+  "properties": {
+    "version": { "const": 1 },
+    "project": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "mode": {
+          "enum": ["solo", "team", "enterprise", "open-source"],
+          "description": "Decides how much blocks. solo blocks 3 rules; enterprise blocks 12. Over-enforcement is the main reason governance tooling gets uninstalled."
+        },
+        "visibility": { "enum": ["internal", "public", "mixed"] },
+        "layout": {
+          "enum": ["compact", "full"],
+          "description": "compact suits most repositories. full is the numbered 00-canonical…99-archive tree; it earns its overhead at roughly 25+ documents."
+        }
+      }
+    },
+    "documentation": {
+      "type": "object",
+      "properties": {
+        "root": { "type": "string" },
+        "include": { "type": "array", "items": { "type": "string" } },
+        "exclude": { "type": "array", "items": { "type": "string" }, "description": "Agent infrastructure is excluded by default: governing the files that configure DocGov is not useful." }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "properties": {
+        "canonical_changes_require_review": { "type": "boolean" },
+        "prevent_duplicate_domains": { "type": "boolean" },
+        "enforce": { "type": ["array", "null"], "items": { "type": "string" }, "description": "Rule ids that block. null derives the list from the project mode." },
+        "warn_only": { "type": "boolean", "description": "Nothing blocks. Useful while adopting DocGov on an existing repository." },
+        "max_new_root_docs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "description": "Per document type. Line counts gate whether a semantic review is worth spending; they never trigger an automatic split.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": { "soft_lines": { "type": "integer" }, "hard_lines": { "type": "integer" } }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "description": "Advisory thresholds per type. Never used as a hard gate: a subjective judgement that fails a build is one nobody can appeal.",
+      "additionalProperties": { "type": "integer", "minimum": 0, "maximum": 100 }
+    },
+    "visibility_paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["glob", "require"],
+        "properties": { "glob": { "type": "string" }, "require": { "type": "array", "items": { "type": "string" } } }
+      }
+    },
+    "generated_paths": { "type": "array", "items": { "type": "string" } },
+    "drift": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "stale_threshold": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "lookback": { "type": "string" },
+        "fail_on": { "type": "array", "items": { "enum": ["critical", "high", "medium", "low"] } }
+      }
+    },
+    "generated": { "type": "object", "properties": { "allow_manual_edit": { "type": "boolean" } } },
+    "contracts": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
+    "domains": {
+      "type": "object",
+      "description": "The highest-leverage section. Mapping a domain to code paths is what switches on context packs, invariant injection and drift detection.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "paths": { "type": "array", "items": { "type": "string" } },
+          "docs": { "type": "array", "items": { "type": "string" } },
+          "owner": { "type": "string" }
+        }
+      }
+    },
+    "policy_packs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "V3 organizational governance: paths to policy packs whose taxonomy, limits, quality thresholds and invariants layer under this config. The repository always keeps the last word."
+    },
+    "suppressions_file": { "type": "string" }
+  }
+}

@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docgov.dev/schemas/frontmatter.json",
+  "title": "DocGov document frontmatter",
+  "description": "The docgov block in a governed document's YAML frontmatter. Point your editor at this for completion and validation.",
+  "type": "object",
+  "required": [
+    "docgov"
+  ],
+  "properties": {
+    "docgov": {
+      "type": "object",
+      "required": [
+        "id",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{1,59}$",
+          "description": "Stable identifier. How every other document, relationship and agent addresses this one. Changing it breaks references."
+        },
+        "type": {
+          "enum": [
+            "constitution.product",
+            "constitution.principles",
+            "constitution.invariants",
+            "constitution.glossary",
+            "constitution.domains",
+            "product.vision",
+            "product.prd",
+            "product.feature",
+            "product.persona",
+            "product.roadmap",
+            "design.ux",
+            "design.flow",
+            "design.accessibility",
+            "architecture.overview",
+            "architecture.domain",
+            "architecture.component",
+            "architecture.data",
+            "architecture.integration",
+            "architecture.trd",
+            "architecture.adr",
+            "security.architecture",
+            "security.threat-model",
+            "security.authorization",
+            "security.data-classification",
+            "security.public-model",
+            "engineering.development",
+            "engineering.testing",
+            "engineering.conventions",
+            "engineering.dependencies",
+            "operations.deployment",
+            "operations.infrastructure",
+            "operations.configuration",
+            "operations.observability",
+            "operations.runbook",
+            "operations.disaster-recovery",
+            "release.notes",
+            "release.migration",
+            "release.deprecation",
+            "user.readme",
+            "user.getting-started",
+            "user.guide",
+            "user.admin-guide",
+            "user.tutorial",
+            "user.troubleshooting",
+            "user.faq",
+            "user.reference",
+            "governance.contributing",
+            "governance.support",
+            "governance.lifecycle",
+            "governance.policy",
+            "contract.openapi",
+            "contract.schema",
+            "note.internal",
+            "archive.document",
+            "agent.instructions",
+            "unknown"
+          ],
+          "description": "Document class. Determines location, template, required sections, limits and quality threshold."
+        },
+        "authority": {
+          "enum": [
+            "constitution",
+            "canonical",
+            "requirements",
+            "decision",
+            "machine-contract",
+            "implementation",
+            "generated",
+            "audience",
+            "historical"
+          ],
+          "description": "Defaults from the type. A lower-authority document may not contradict a higher one."
+        },
+        "domain": {
+          "type": "string",
+          "description": "Bounded area this belongs to. Joins the document to config domains and to invariant scoping."
+        },
+        "audience": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "visibility": {
+          "enum": [
+            "public",
+            "internal",
+            "confidential",
+            "generated-public",
+            "generated-internal"
+          ],
+          "description": "Governs which paths may hold it and whether it can be published."
+        },
+        "lens": {
+          "enum": [
+            "readme",
+            "developer",
+            "architecture",
+            "security",
+            "user",
+            "agent",
+            "operations"
+          ],
+          "description": "Review lens. Defaults from the type."
+        },
+        "owner": {
+          "type": "string",
+          "description": "Required in team and enterprise modes."
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "active",
+            "deprecated",
+            "superseded",
+            "archived"
+          ]
+        },
+        "documents": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "description": "Code path globs this document describes. Without this the document is invisible to drift detection and to invariant injection — the single most valuable field in the block."
+        },
+        "invariants": {
+          "type": "array",
+          "description": "Explicit invariants. Usually written as list items in the body instead.",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "statement": {
+                    "type": "string"
+                  },
+                  "paths": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "severity": {
+                    "enum": [
+                      "critical",
+                      "high",
+                      "medium",
+                      "low"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "relationships": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Edges in the documentation graph. Inverses are derived automatically.",
+          "properties": {
+            "depends_on": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "defines": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "implements": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "derived_from": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "supersedes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "references": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "validated_by": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "generated_from": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "exposes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "documents": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "review": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cadence": {
+              "type": "string",
+              "pattern": "^\\d+[dwmy]$"
+            },
+            "last": {
+              "type": "string"
+            }
+          }
+        },
+        "generation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "enum": [
+                "human-maintained",
+                "generated",
+                "assisted"
+              ]
+            },
+            "source": {
+              "type": "string"
+            },
+            "generator": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

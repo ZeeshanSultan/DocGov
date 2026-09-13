@@ -1,0 +1,214 @@
+{
+  "version": 1,
+  "generated": "2026-09-13T02:42:36.245Z",
+  "layout": "compact",
+  "mode": "solo",
+  "git": {
+    "repo": true,
+    "clean": false
+  },
+  "summary": {
+    "documents": 4,
+    "unclassified": 0,
+    "lowConfidence": 0,
+    "moves": 2,
+    "annotations": 0,
+    "splits": 0,
+    "extracts": 0,
+    "merges": 0,
+    "archives": 0,
+    "creates": 4,
+    "brokenLinks": 0,
+    "duplicateCandidates": 0,
+    "needJudgement": 0,
+    "highRisk": 0
+  },
+  "classifications": [
+    {
+      "path": "FEASIBILITY.md",
+      "current": "security.threat-model",
+      "proposed": "security.threat-model",
+      "confidence": 100,
+      "needsReview": false,
+      "signals": [
+        "declared in frontmatter"
+      ],
+      "candidates": [
+        {
+          "type": "security.threat-model",
+          "score": 100
+        }
+      ],
+      "owner": null,
+      "lastChanged": null,
+      "lines": 231,
+      "registered": true
+    },
+    {
+      "path": "PRD.md",
+      "current": "product.prd",
+      "proposed": "product.prd",
+      "confidence": 100,
+      "needsReview": false,
+      "signals": [
+        "declared in frontmatter"
+      ],
+      "candidates": [
+        {
+          "type": "product.prd",
+          "score": 100
+        }
+      ],
+      "owner": null,
+      "lastChanged": null,
+      "lines": 1810,
+      "registered": true
+    },
+    {
+      "path": "README.md",
+      "current": "user.readme",
+      "proposed": "user.readme",
+      "confidence": 100,
+      "needsReview": false,
+      "signals": [
+        "declared in frontmatter"
+      ],
+      "candidates": [
+        {
+          "type": "user.readme",
+          "score": 100
+        }
+      ],
+      "owner": null,
+      "lastChanged": null,
+      "lines": 178,
+      "registered": true
+    },
+    {
+      "path": "examples/policy-packs/README.md",
+      "current": "docs.index",
+      "proposed": "docs.index",
+      "confidence": 100,
+      "needsReview": false,
+      "signals": [
+        "declared in frontmatter"
+      ],
+      "candidates": [
+        {
+          "type": "docs.index",
+          "score": 100
+        }
+      ],
+      "owner": null,
+      "lastChanged": null,
+      "lines": 57,
+      "registered": true
+    }
+  ],
+  "actions": [
+    {
+      "kind": "MOVE",
+      "path": "FEASIBILITY.md",
+      "to": "docs/security/FEASIBILITY.md",
+      "type": "security.threat-model",
+      "reason": "a Threat Model belongs in docs/security/",
+      "risk": "low",
+      "requiresJudgement": false
+    },
+    {
+      "kind": "MOVE",
+      "path": "PRD.md",
+      "to": "docs/product/PRD.md",
+      "type": "product.prd",
+      "reason": "a PRD belongs in docs/product/",
+      "risk": "low",
+      "requiresJudgement": false
+    },
+    {
+      "kind": "CREATE",
+      "type": "operations.deployment",
+      "to": "docs/operations/",
+      "risk": "low",
+      "requiresJudgement": false,
+      "reason": "ci detected (.github/workflows/docgov.yml) but no Deployment Guide exists"
+    },
+    {
+      "kind": "CREATE",
+      "type": "engineering.testing",
+      "to": "docs/engineering/",
+      "risk": "low",
+      "requiresJudgement": false,
+      "reason": "ci detected (.github/workflows/docgov.yml) but no Testing Strategy exists"
+    },
+    {
+      "kind": "CREATE",
+      "type": "architecture.overview",
+      "to": "docs/architecture.md",
+      "risk": "low",
+      "requiresJudgement": false,
+      "reason": "every repository should have this"
+    },
+    {
+      "kind": "CREATE",
+      "type": "engineering.development",
+      "to": "docs/development.md",
+      "risk": "low",
+      "requiresJudgement": false,
+      "reason": "every repository should have this"
+    }
+  ],
+  "duplicates": [],
+  "contradictionCandidates": [],
+  "gaps": [
+    {
+      "type": "operations.deployment",
+      "label": "Deployment Guide",
+      "because": "ci",
+      "evidence": ".github/workflows/docgov.yml"
+    },
+    {
+      "type": "engineering.testing",
+      "label": "Testing Strategy",
+      "because": "ci",
+      "evidence": ".github/workflows/docgov.yml"
+    },
+    {
+      "type": "architecture.overview",
+      "label": "Architecture Overview",
+      "because": "baseline",
+      "evidence": null
+    },
+    {
+      "type": "engineering.development",
+      "label": "Development Guide",
+      "because": "baseline",
+      "evidence": null
+    }
+  ],
+  "brokenLinks": [],
+  "stack": [
+    {
+      "id": "ci",
+      "evidence": ".github/workflows/docgov.yml",
+      "count": 1
+    },
+    {
+      "id": "tests",
+      "evidence": "test/docgov.test.js",
+      "count": 1
+    }
+  ],
+  "contracts": [
+    {
+      "path": "schemas/config.json",
+      "kind": "json-schema"
+    },
+    {
+      "path": "schemas/frontmatter.json",
+      "kind": "json-schema"
+    }
+  ],
+  "agentInstructions": [
+    ".claude/rules"
+  ]
+}

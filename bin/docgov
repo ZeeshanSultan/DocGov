@@ -1,0 +1,1128 @@
+#!/usr/bin/env node
+/**
+ * docgov — documentation governance engine.
+ *
+ * One binary serves three callers: Claude Code skills (via `--json`), Claude Code
+ * hooks (via `docgov hook <event>` speaking the hook JSON protocol on stdin/stdout),
+ * and CI (via exit codes). Keeping them on one implementation is why a governance
+ * decision cannot differ between the editor and the pipeline.
+ */
+import path from 'node:path';
+import fs from 'node:fs';
+import process from 'node:process';
+
+import * as cfgmod from '../core/config.js';
+import * as reg from '../core/registry.js';
+import * as graphmod from '../core/graph.js';
+import * as checkmod from '../core/check.js';
+import * as driftmod from '../core/drift.js';
+import * as impactmod from '../core/impact.js';
+import * as onboardmod from '../core/onboard.js';
+import * as migratemod from '../core/migrate.js';
+import * as tpl from '../core/templates.js';
+import * as inv from '../core/inventory.js';
+import * as invariantsmod from '../core/invariants.js';
+import * as ctxpack from '../core/context.js';
+import * as findmod from '../core/find.js';
+import * as healthmod from '../core/health.js';
+import * as pubmod from '../core/publish.js';
+import * as supp from '../core/suppressions.js';
+import * as git from '../core/git.js';
+import * as yaml from '../core/yaml.js';
+import * as fm from '../core/frontmatter.js';
+import { Document } from '../core/document.js';
+import { classify, destinationFor } from '../core/classify.js';
+import { AUTHORITY, TYPES, typeDef, FULL_NAMESPACES, COMPACT_NAMESPACES } from '../core/taxonomy.js';
+import { staleness } from '../core/drift.js';
+import { EXIT, DocGovError, table, write, read, exists, toPosix, plural } from '../core/util.js';
+
+const argv = process.argv.slice(2);
+const cmd = argv[0];
+const flags = parseFlags(argv.slice(1));
+const JSONOUT = flags.json === true;
+
+function parseFlags(args) {
+  const out = { _: [] };
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a.startsWith('--')) {
+      const [k, v] = a.slice(2).split('=');
+      const key = k.replace(/-/g, '_');
+      if (v !== undefined) out[key] = v;
+      else if (args[i + 1] && !args[i + 1].startsWith('--')) out[key] = args[++i];
+      else out[key] = true;
+    } else out._.push(a);
+  }
+  return out;
+}
+
+function list(v) { return v == null || v === true ? [] : String(v).split(',').map((s) => s.trim()).filter(Boolean); }
+function say(...a) { if (!JSONOUT) console.log(...a); }
+function emit(obj) { if (JSONOUT) console.log(JSON.stringify(obj, null, flags.compact ? 0 : 2)); }
+
+/** Load everything once. Every command sees the same snapshot. */
+function ctx({ requireInit = true } = {}) {
+  const { root, cfg, raw, initialized } = cfgmod.load(process.cwd());
+  if (requireInit && !initialized) {
+    throw new DocGovError('this repository is not governed yet. Run `docgov init` (or `docgov onboard` for an existing documentation tree).');
+  }
+  const i = inv.inventory(root, cfg);
+  const docs = i.documents;
+  const { registry, collisions } = reg.build(docs, i.contracts);
+  const graph = graphmod.build(docs, registry, cfg, i.contracts);
+  return { root, cfg, raw, initialized, inv: i, docs, registry, collisions, graph };
+}
+
+const COMMANDS = {
+  init: cmdInit,
+  onboard: cmdOnboard,
+  migrate: cmdMigrate,
+  classify: cmdClassify,
+  organize: cmdOrganize,
+  create: cmdCreate,
+  check: cmdCheck,
+  drift: cmdDrift,
+  impact: cmdImpact,
+  manifest: cmdManifest,
+  context: cmdContext,
+  find: cmdFind,
+  health: cmdHealth,
+  publish: cmdPublish,
+  registry: cmdRegistry,
+  graph: cmdGraph,
+  invariants: cmdInvariants,
+  types: cmdTypes,
+  capabilities: cmdCapabilities,
+  suppress: cmdSuppress,
+  review: cmdReviewPackets,
+  hook: cmdHook,
+  version: () => { say(packageVersion()); return EXIT.OK; },
+  help: usage,
+};
+
+try {
+  const fn = COMMANDS[cmd];
+  if (!fn) { usage(); process.exit(cmd ? EXIT.CONFIG : EXIT.OK); }
+  process.exit(fn() ?? EXIT.OK);
+} catch (e) {
+  if (e instanceof DocGovError) {
+    if (JSONOUT) console.log(JSON.stringify({ error: e.message }));
+    else console.error(`docgov: ${e.message}`);
+    process.exit(e.code ?? EXIT.CONFIG);
+  }
+  if (JSONOUT) console.log(JSON.stringify({ error: String(e.message || e) }));
+  else console.error(`docgov: unexpected error: ${e.stack || e}`);
+  process.exit(EXIT.CONFIG);
+}
+
+// ───────────────────────────── commands ─────────────────────────────
+
+function cmdInit() {
+  const { root, initialized } = cfgmod.load(process.cwd());
+  if (initialized && !flags.force) throw new DocGovError('already initialized. Pass --force to rewrite .docgov/config.yaml.');
+
+  const i = inv.inventory(root, cfgmod.defaults());
+  const mode = flags.mode || inferMode(root, i);
+  const layout = flags.layout || (i.documents.length > 25 ? 'full' : 'compact');
+  const visibility = flags.visibility || (exists(path.join(root, 'LICENSE')) ? 'mixed' : 'internal');
+
+  const raw = {
+    version: 1,
+    project: { name: projectName(root), mode, visibility, layout },
+    documentation: { root: 'docs' },
+    governance: { canonical_changes_require_review: mode !== 'solo', prevent_duplicate_domains: true },
+    drift: { enabled: true },
+    generated: { allow_manual_edit: false },
+    domains: {},
+  };
+  cfgmod.save(root, raw);
+
+  const { cfg } = cfgmod.load(root);
+  const made = [];
+  for (const dir of layout === 'full' ? FULL_NAMESPACES : COMPACT_NAMESPACES) {
+    const abs = path.join(root, dir);
+    if (!exists(abs)) { fs.mkdirSync(abs, { recursive: true }); made.push(dir); }
+  }
+
+  const rulesPath = path.join(root, '.claude', 'rules', 'documentation.md');
+  if (!exists(rulesPath) || flags.force) { write(rulesPath, agentRules(cfg)); made.push('.claude/rules/documentation.md'); }
+
+  const { registry } = reg.build(i.documents, i.contracts);
+  reg.save(root, registry);
+  graphmod.save(root, graphmod.build(i.documents, registry, cfg, i.contracts));
+
+  if (JSONOUT) return emit({ initialized: true, mode, layout, visibility, created: made }) ?? EXIT.OK;
+  say(`Initialized DocGov in ${root}`);
+  say(`  mode       ${mode}      (${cfgmod.MODE_PROFILES[mode].block.length} rules block, the rest warn)`);
+  say(`  layout     ${layout}`);
+  say(`  visibility ${visibility}`);
+  say(`  documents  ${i.documents.length} found, ${i.contracts.length} machine contract(s)`);
+  say('');
+  say('Created:');
+  for (const m of made.slice(0, 12)) say(`  ${m}`);
+  if (made.length > 12) say(`  … and ${made.length - 12} more namespaces`);
+  say('');
+  say(i.documents.length > 2
+    ? 'Next: `docgov onboard` to classify what is already here.'
+    : 'Next: `docgov create user.readme` or `docgov check`.');
+  return EXIT.OK;
+}
+
+
+function cmdOnboard() {
+  const c = ctx({ requireInit: false });
+  if (!c.initialized) {
+    say('Not initialized — running `docgov init` with inferred settings first.\n');
+    cmdInit();
+    return cmdOnboard();
+  }
+  const planData = onboardmod.plan(c);
+  const md = onboardmod.render(planData, c.cfg);
+  write(path.join(c.root, onboardmod.PLAN_PATH), md + '\n');
+  write(path.join(c.root, onboardmod.PLAN_DATA_PATH), JSON.stringify(planData, null, 2) + '\n');
+
+  if (JSONOUT) return emit({ plan: onboardmod.PLAN_PATH, data: onboardmod.PLAN_DATA_PATH, ...planData }) ?? EXIT.OK;
+  const s = planData.summary;
+  say('DocGov onboarding');
+  say('─────────────────');
+  say(`${plural(s.documents, 'document')} inventoried · ${plural(planData.contracts.length, 'machine contract')} · stack: ${planData.stack.map((x) => x.id).join(', ') || 'none detected'}`);
+  say('');
+  say(table([
+    { Finding: 'unclassified', Count: s.unclassified },
+    { Finding: 'low-confidence classification', Count: s.lowConfidence },
+    { Finding: 'moves proposed', Count: s.moves },
+    { Finding: 'frontmatter to add', Count: s.annotations },
+    { Finding: 'split candidates', Count: s.splits },
+    { Finding: 'README extractions', Count: s.extracts },
+    { Finding: 'suspected duplicates', Count: s.merges },
+    { Finding: 'documents to archive', Count: s.archives },
+    { Finding: 'missing documents', Count: s.creates },
+    { Finding: 'broken internal links', Count: s.brokenLinks },
+  ], ['Finding', 'Count']));
+  say('');
+  say(`Plan written to ${onboardmod.PLAN_PATH} — nothing has changed.`);
+  say(`${s.needJudgement} of ${planData.actions.length} actions need a judgement call.`);
+  say('');
+  say('Read the plan, delete anything you disagree with, then: docgov migrate --dry-run');
+  return EXIT.OK;
+}
+
+function cmdMigrate() {
+  const c = ctx();
+  const dataPath = path.join(c.root, onboardmod.PLAN_DATA_PATH);
+  if (!exists(dataPath)) throw new DocGovError('no onboarding plan found. Run `docgov onboard` first.');
+  const planData = JSON.parse(read(dataPath));
+  const dryRun = flags.dry_run === true || flags.dry === true;
+  const include = list(flags.include);
+  const useGit = flags.no_git !== true;
+
+  let branch = null;
+  if (!dryRun && useGit && git.isRepo(c.root) && flags.branch !== false) {
+    branch = typeof flags.branch === 'string' ? flags.branch : `docgov/migration-${new Date().toISOString().slice(0, 10)}`;
+    if (git.revParse(c.root, branch)) say(`Branch ${branch} already exists — committing onto it.`);
+    else git.createBranch(c.root, branch);
+  }
+
+  const result = migratemod.migrate({ root: c.root, cfg: c.cfg, docs: c.docs, planData, dryRun, include, branch, useGit });
+
+  if (!dryRun) {
+    const after = ctx();
+    const problems = migratemod.verify({ root: after.root, docs: after.docs, inv: after.inv });
+    reg.save(after.root, reg.build(after.docs, after.inv.contracts).registry);
+    graphmod.save(after.root, after.graph);
+    result.verification = problems;
+    if (problems.length && flags.keep !== true && useGit && git.isRepo(c.root)) {
+      result.aborted = true;
+      migratemod.abort(c.root);
+    } else if (flags.commit === true) {
+      git.add(c.root, ['.']);
+      git.commit(c.root, `docs: migrate documentation to the DocGov taxonomy\n\n${result.moved} moved, ${result.annotated} annotated, ${result.linksRepaired} link sets repaired.`);
+      result.committed = true;
+    }
+  }
+
+  if (JSONOUT) return emit(result) ?? (result.aborted ? EXIT.VIOLATION : EXIT.OK);
+  say(dryRun ? 'Migration plan (dry run — nothing changed)' : 'Migration');
+  say('─'.repeat(42));
+  for (const op of result.ops.slice(0, 60)) {
+    if (op.op === 'move') say(`  MOVE   ${op.from}\n         → ${op.to}${op.rewroteLinks ? '   (links repaired)' : ''}${op.annotated ? '   (frontmatter added)' : ''}`);
+    else if (op.op === 'edit') say(`  EDIT   ${op.path}${op.rewroteLinks ? '   (links repaired)' : ''}${op.annotated ? '   (frontmatter added)' : ''}`);
+    else say(`  MKDIR  ${op.path}   (${op.type})`);
+  }
+  if (result.ops.length > 60) say(`  … and ${result.ops.length - 60} more operations`);
+  say('');
+  say(`${result.moved} moved · ${result.edited} edited in place · ${result.annotated} annotated · ${result.linksRepaired} documents had links repaired`);
+  if (branch) say(`Branch: ${branch}`);
+  if (result.deferred.length) {
+    say('');
+    say(`Deferred to /docgov:organize (these rewrite prose, so an agent does them with you): ${result.deferred.length}`);
+    for (const d of result.deferred.slice(0, 8)) say(`  ${d.kind.padEnd(8)} ${d.path || d.to}`);
+  }
+  if (result.verification?.length) {
+    say('');
+    say(result.aborted
+      ? `Verification failed with ${result.verification.length} problem(s) — migration reverted with git reset --hard.`
+      : `Verification found ${result.verification.length} problem(s):`);
+    for (const p of result.verification.slice(0, 10)) say(`  ${p.kind}  ${p.path}${p.target ? ` → ${p.target}` : ''}`);
+    return result.aborted ? EXIT.VIOLATION : EXIT.REVIEW;
+  }
+  if (!dryRun) say('\nVerified: no broken links, no duplicate ids.');
+  return EXIT.OK;
+}
+
+function cmdClassify() {
+  const c = ctx({ requireInit: false });
+  const targets = flags.path ? [String(flags.path)] : (flags._.length ? flags._ : c.docs.map((d) => d.path));
+  const rows = [];
+  for (const p of targets) {
+    const doc = c.docs.find((d) => d.path === p) ||
+      (exists(path.join(c.root, p)) ? new Document(c.root, p) : { path: p, body: '', frontmatter: {} });
+    const res = classify(doc);
+    rows.push({
+      path: p, type: res.type, confidence: res.confidence, declared: res.declared,
+      needsReview: res.needsReview, signals: res.signals, candidates: res.candidates,
+      destination: res.type === 'unknown' ? null : destinationFor(c.cfg, res.type, p),
+      authority: res.type === 'unknown' ? null : typeDef(res.type).authority,
+      requiredSections: res.type === 'unknown' ? [] : typeDef(res.type).sections,
+    });
+  }
+  if (JSONOUT) return emit(rows.length === 1 ? rows[0] : rows) ?? EXIT.OK;
+  for (const r of rows) {
+    say(`${r.path}`);
+    say(`  type        ${r.type}  ${r.declared ? '(declared)' : `(${r.confidence}% confidence${r.needsReview ? ', needs review' : ''})`}`);
+    if (r.authority) say(`  authority   ${r.authority}`);
+    if (r.destination && r.destination !== r.path) say(`  belongs at  ${r.destination}`);
+    if (r.signals.length) say(`  because     ${r.signals.join('; ')}`);
+    if (r.needsReview && r.candidates.length > 1) say(`  also        ${r.candidates.slice(1).map((x) => `${x.type} (${x.score})`).join(', ')}`);
+    say('');
+  }
+  return EXIT.OK;
+}
+
+function cmdOrganize() {
+  const c = ctx();
+  const apply = flags.apply === true;
+  const only = flags.path ? [String(flags.path)] : null;
+  const docs = only ? c.docs.filter((d) => only.includes(d.path)) : c.docs;
+  const changes = [];
+  for (const d of docs) {
+    const res = classify(d);
+    if (res.type === 'unknown') { changes.push({ path: d.path, action: 'needs-classification' }); continue; }
+    const needsMeta = !d.registered || !d.meta.type || !d.meta.visibility;
+    const dest = destinationFor(c.cfg, res.type, d.path);
+    if (!needsMeta && dest === d.path) continue;
+    const entry = { path: d.path, action: needsMeta ? 'annotate' : 'move', type: res.type, destination: dest };
+    if (apply && needsMeta) {
+      const meta = tpl.frontmatterFor({ type: res.type, id: d.meta.id || d.id, title: d.title, cfg: c.cfg,
+        domain: d.domain, visibility: d.meta.visibility, owner: d.owner });
+      write(path.join(c.root, d.path), fm.patchDocgov(d.source, meta));
+      entry.applied = true;
+    }
+    changes.push(entry);
+  }
+  if (apply) {
+    const after = ctx();
+    reg.save(after.root, reg.build(after.docs, after.inv.contracts).registry);
+    graphmod.save(after.root, after.graph);
+  }
+  if (JSONOUT) return emit({ applied: apply, changes }) ?? EXIT.OK;
+  if (!changes.length) { say('Every document is classified, annotated and in the right place.'); return EXIT.OK; }
+  say(table(changes.map((x) => ({ Document: x.path, Action: x.action, Type: x.type || '', Destination: x.destination || '' })),
+    ['Document', 'Action', 'Type', 'Destination']));
+  say('');
+  say(apply ? 'Frontmatter applied. Moves are handled by `docgov migrate` so they stay transactional.'
+            : 'Pass --apply to write frontmatter. Moves go through `docgov onboard` + `docgov migrate`.');
+  return EXIT.OK;
+}
+
+
+function cmdCreate() {
+  const c = ctx();
+  const type = flags._[0] || flags.type;
+  if (!type) throw new DocGovError('usage: docgov create <type> [name] [--domain d] [--path p]\nRun `docgov types` to list document classes.');
+  if (!TYPES[type]) {
+    const near = Object.keys(TYPES).filter((t) => t.includes(String(type).split('.').pop())).slice(0, 5);
+    throw new DocGovError(`unknown type "${type}".${near.length ? ` Did you mean: ${near.join(', ')}?` : ''} Run \`docgov types\`.`);
+  }
+  const name = flags._[1] || flags.name || typeDef(type).label;
+  const domain = flags.domain ? String(flags.domain) : null;
+  const def = typeDef(type);
+
+  let target = flags.path ? String(flags.path) : null;
+  if (!target) {
+    const loc = cfgmod.locationFor(c.cfg, type);
+    target = loc.endsWith('/')
+      ? loc + `${String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.md`
+      : loc;
+  }
+  if (exists(path.join(c.root, target)) && !flags.force)
+    throw new DocGovError(`${target} already exists. Edit it, or pass --force.`);
+
+  // Wire the new document into the graph automatically: that is the difference
+  // between a template and a governed document.
+  const relationships = {};
+  const related = findmod.find({ docs: c.docs, query: domain || name, limit: 6 });
+  const deps = related.filter((r) => (AUTHORITY[r.authority]?.rank ?? 9) < (AUTHORITY[def.authority]?.rank ?? 9))
+    .map((r) => r.id).slice(0, 3);
+  if (deps.length) relationships.depends_on = deps;
+  if (type === 'architecture.trd') {
+    const prd = c.docs.find((d) => d.type === 'product.prd' && (!domain || d.domain === domain));
+    if (prd) relationships.implements = [prd.id];
+  }
+  if (flags.implements) relationships.implements = list(flags.implements);
+  if (flags.supersedes) relationships.supersedes = list(flags.supersedes);
+
+  const content = tpl.create({ type, title: String(name), id: flags.id ? String(flags.id) : undefined,
+    cfg: c.cfg, domain, relationships, owner: flags.owner ? String(flags.owner) : null,
+    visibility: flags.visibility ? String(flags.visibility) : null });
+  write(path.join(c.root, target), content);
+
+  const after = ctx();
+  reg.save(after.root, reg.build(after.docs, after.inv.contracts).registry);
+  graphmod.save(after.root, after.graph);
+
+  if (JSONOUT) return emit({ created: target, type, relationships, requiredSections: def.sections,
+    softLimit: def.soft, quality: def.quality, related: related.map((r) => ({ id: r.id, path: r.path, authority: r.authority })) }) ?? EXIT.OK;
+  say(`Created ${target}`);
+  say(`  type        ${type} (${def.authority})`);
+  if (Object.keys(relationships).length) {
+    for (const [k, v] of Object.entries(relationships)) say(`  ${k.padEnd(11)} ${v.join(', ')}`);
+  }
+  if (def.sections?.length) say(`  sections    ${def.sections.length} required: ${def.sections.join(', ')}`);
+  if (def.soft) say(`  limits      ${def.soft} soft / ${def.hard} hard lines`);
+  if (related.length) {
+    say('');
+    say('Authoritative context you should read before writing this:');
+    for (const r of related.slice(0, 4)) say(`  [${r.label}] ${r.path}`);
+    say(`  (or run: docgov context ${domain || name})`);
+  }
+  return EXIT.OK;
+}
+
+function cmdCheck() {
+  const c = ctx();
+  const changedOnly = flags.changed === true;
+  const base = flags.base ? String(flags.base) : 'HEAD';
+  let only = null;
+  if (changedOnly) {
+    const changed = git.changedFiles(c.root, base).map((x) => x.path);
+    only = changed.filter((p) => /\.mdx?$/.test(p));
+  }
+  if (flags.path) only = [String(flags.path)];
+
+  const { findings } = checkmod.run({ ...c, only });
+  const sup = supp.load(c.root, c.cfg);
+  const withIds = findings.map((f) => ({ ...f, id: findingId(f) }));
+  const split = supp.apply(withIds, sup);
+
+  let drift = { findings: [] };
+  if (c.cfg.drift.enabled && flags.no_drift !== true) {
+    drift = driftmod.analyze({ root: c.root, cfg: c.cfg, docs: c.docs, graph: c.graph, base });
+  }
+  const driftSplit = supp.apply(drift.findings, sup);
+
+  const code = checkmod.exitCode({ findings: split.active, driftFindings: driftSplit.active, cfg: c.cfg });
+  const stats = checkmod.summarize(split.active);
+
+  if (JSONOUT) {
+    emit({ exitCode: code, stats, findings: split.active, suppressed: split.suppressed.length,
+      expiredSuppressions: split.expired, drift: driftSplit.active, unusedSuppressions: split.unused });
+    return code;
+  }
+
+  if (!split.active.length && !driftSplit.active.length) {
+    say(`✓ ${plural(c.docs.length, 'document')} checked, no findings.`);
+    if (split.suppressed.length) say(`  (${split.suppressed.length} suppressed)`);
+    return code;
+  }
+  say(`DocGov check — ${plural(c.docs.length, 'document')}, mode ${c.cfg.project.mode}`);
+  say('─'.repeat(54));
+  const blocking = split.active.filter((f) => f.blocking);
+  const advisory = split.active.filter((f) => !f.blocking);
+  if (blocking.length) {
+    say('');
+    say(`BLOCKING (${blocking.length}) — these fail CI`);
+    for (const f of blocking) printFinding(f);
+  }
+  if (advisory.length) {
+    say('');
+    say(`ADVISORY (${advisory.length}) — reported, not enforced in mode "${c.cfg.project.mode}"`);
+    for (const f of advisory.slice(0, flags.all ? advisory.length : 25)) printFinding(f);
+    if (!flags.all && advisory.length > 25) say(`  … ${advisory.length - 25} more (pass --all)`);
+  }
+  if (driftSplit.active.length) {
+    say('');
+    say(`DRIFT (${driftSplit.active.length})`);
+    for (const f of driftSplit.active.slice(0, 12)) {
+      say(`  ${f.severity.toUpperCase().padEnd(8)} ${f.id}  ${f.document}`);
+      say(`           ${f.why}`);
+      say(`           → ${f.action}`);
+    }
+  }
+  if (split.expired.length) {
+    say('');
+    say(`EXPIRED SUPPRESSIONS (${split.expired.length}) — no longer suppressing:`);
+    for (const f of split.expired) say(`  ${f.id}  expired ${f.suppression.expires}: ${f.suppression.reason}`);
+  }
+  say('');
+  say(`exit ${code}  ${code === 0 ? '(pass)' : code === 1 ? '(deterministic violation)' : '(drift requires review)'}`);
+  return code;
+}
+
+function printFinding(f) {
+  say(`  ${f.severity.padEnd(8)} ${f.rule.padEnd(21)} ${f.path}`);
+  say(`           ${f.message}`);
+  if (f.fix) say(`           fix: ${f.fix}`);
+}
+
+function findingId(f) {
+  const basis = `${f.rule}:${f.path}:${f.other || ''}`;
+  let h = 0;
+  for (let i = 0; i < basis.length; i++) h = (h * 31 + basis.charCodeAt(i)) >>> 0;
+  return `${f.rule.toUpperCase().replace(/-/g, '')}-${String(h % 10000).padStart(4, '0')}`;
+}
+
+function cmdDrift() {
+  const c = ctx();
+  const base = flags.base ? String(flags.base) : 'HEAD';
+  const res = driftmod.analyze({ root: c.root, cfg: c.cfg, docs: c.docs, graph: c.graph, base });
+  const sup = supp.load(c.root, c.cfg);
+  const split = supp.apply(res.findings, sup);
+  const stale = flags.no_staleness === true ? [] : staleness({ root: c.root, cfg: c.cfg, docs: c.docs, graph: c.graph });
+
+  if (JSONOUT) {
+    emit({ ...res, findings: split.active, suppressed: split.suppressed, staleness: stale,
+      packets: driftmod.reviewPackets({ root: c.root, findings: split.active, base }) });
+    return split.active.some((f) => ['critical', 'high'].includes(f.severity)) ? EXIT.REVIEW : EXIT.OK;
+  }
+
+  if (!res.usable) { say(res.note); return EXIT.OK; }
+  const by = (s) => split.active.filter((f) => f.severity === s).length;
+  say('DOCUMENTATION DRIFT REPORT');
+  say(`Base: ${base} · ${plural(res.changed.length, 'changed file')}`);
+  say(`Critical: ${by('critical')}   High: ${by('high')}   Medium: ${by('medium')}   Low: ${by('low')}`);
+  say('');
+  for (const f of split.active) {
+    say(`${f.severity.toUpperCase()}  ${f.id}  [${f.kind}]`);
+    say(`  Document:       ${f.document} (${f.documentAuthority})`);
+    if (f.implementation?.length) say(`  Implementation: ${f.implementation.slice(0, 4).join(', ')}${f.implementationCount > 4 ? ` +${f.implementationCount - 4} more` : ''}`);
+    say(`  Why:            ${f.why}`);
+    say(`  Action:         ${f.action}`);
+    if (f.invariants?.length) say(`  Invariants:     ${f.invariants.join(', ')}`);
+    say('');
+  }
+  if (!split.active.length) say('No drift detected.');
+  const hot = stale.filter((s) => s.risk >= (c.cfg.drift.stale_threshold ?? 60));
+  if (hot.length) {
+    say(`STALENESS RISK (${hot.length} document(s) above ${c.cfg.drift.stale_threshold})`);
+    for (const s of hot.slice(0, 10)) {
+      say(`  ${String(s.risk).padStart(3)}/100  ${s.path}`);
+      for (const sig of s.signals.slice(0, 2)) say(`           ${sig}`);
+    }
+    say('');
+  }
+  if (split.suppressed.length) say(`${split.suppressed.length} finding(s) suppressed.`);
+  say('Semantic confirmation (does the prose actually contradict the code?) is the drift-reviewer');
+  say('agent\'s job: run /docgov:drift in Claude Code. This report is the deterministic half.');
+  return split.active.some((f) => ['critical', 'high'].includes(f.severity)) ? EXIT.REVIEW : EXIT.OK;
+}
+
+function cmdImpact() {
+  const c = ctx();
+  const base = flags.base ? String(flags.base) : 'HEAD';
+  const paths = flags.paths ? list(flags.paths) : (flags._.length ? flags._ : null);
+  const res = impactmod.analyze({ root: c.root, cfg: c.cfg, docs: c.docs, graph: c.graph, base, paths });
+  if (JSONOUT) return emit({ ...res, manifest: impactmod.manifest(res) }) ?? EXIT.OK;
+  say('CHANGE IMPACT');
+  say(`Changed: ${res.changed.length} file(s)${res.domains.length ? ` · domains: ${res.domains.join(', ')}` : ''}`);
+  say(`Impact level: ${res.level}`);
+  say('');
+  const sig = res.signals;
+  say(`behaviour ${yn(sig.behaviorChanged)}  api ${yn(sig.apiChanged)}  security ${yn(sig.securityChanged)}  tests ${yn(sig.testsChanged)}  user-visible ${yn(sig.userVisible)}`);
+  say('');
+  const req = res.affected.filter((a) => a.required);
+  const opt = res.affected.filter((a) => !a.required);
+  say(`Required review (${req.length}):`);
+  for (const a of req) say(`  ${a.updated ? '✓' : '✗'} ${a.path}  [${a.authority}]  ${a.reasons[0] || ''}`);
+  if (!req.length) say('  (none)');
+  if (opt.length) {
+    say('');
+    say(`Optional review (${opt.length}):`);
+    for (const a of opt.slice(0, 10)) say(`  · ${a.path}  ${a.reasons[0] || ''}`);
+  }
+  return EXIT.OK;
+}
+
+function yn(b) { return b ? 'yes' : 'no '; }
+
+function cmdManifest() {
+  const c = ctx();
+  const base = flags.base ? String(flags.base) : 'HEAD';
+  const res = impactmod.analyze({ root: c.root, cfg: c.cfg, docs: c.docs, graph: c.graph, base });
+  const m = impactmod.manifest(res);
+  const out = path.join(c.root, '.docgov', 'manifest.yaml');
+  if (flags.write !== false) write(out, yaml.stringify(m));
+  if (flags.pr === true) {
+    const drift = driftmod.analyze({ root: c.root, cfg: c.cfg, docs: c.docs, graph: c.graph, base });
+    const report = impactmod.prReport(res, drift, c.cfg);
+    if (JSONOUT) return emit({ manifest: m, pr: report }) ?? (report.blocked ? EXIT.REVIEW : EXIT.OK);
+    say(report.text);
+    return report.blocked ? EXIT.REVIEW : EXIT.OK;
+  }
+  if (JSONOUT) return emit(m) ?? EXIT.OK;
+  say(yaml.stringify(m).trimEnd());
+  say('');
+  say(`Written to ${path.relative(c.root, out)} — delete it after merge.`);
+  return m.docs.outstanding.length ? EXIT.REVIEW : EXIT.OK;
+}
+
+function cmdContext() {
+  const c = ctx();
+  const topic = flags._[0] || flags.topic;
+  if (!topic) throw new DocGovError('usage: docgov context <topic>');
+  const pack = ctxpack.pack({ cfg: c.cfg, docs: c.docs, graph: c.graph, topic: String(topic),
+    budget: flags.budget ? parseInt(flags.budget, 10) : undefined,
+    include: flags.include ? list(flags.include) : null });
+  if (JSONOUT) return emit({ topic, pack }) ?? EXIT.OK;
+  console.log(pack);   // always stdout: this is what a skill injects
+  return EXIT.OK;
+}
+
+function cmdFind() {
+  const c = ctx();
+  const q = flags._.join(' ') || flags.query;
+  if (!q) throw new DocGovError('usage: docgov find "<query>"');
+  const results = findmod.find({ docs: c.docs, query: q, limit: flags.limit ? parseInt(flags.limit, 10) : 10 });
+  if (JSONOUT) return emit(results) ?? EXIT.OK;
+  if (!results.length) { say(`No document matches "${q}".`); return EXIT.OK; }
+  let i = 0;
+  for (const r of results) {
+    say(`${++i}. [${r.label}] ${r.title}`);
+    say(`   ${r.path}${r.domain ? `  ·  domain: ${r.domain}` : ''}${r.status !== 'active' ? `  ·  ${r.status}` : ''}`);
+    say(`   ${r.snippet}`);
+    say('');
+  }
+  say('Ordered by authority first, then relevance: read the top entry before the ones below it.');
+  return EXIT.OK;
+}
+
+function cmdHealth() {
+  const c = ctx();
+  const { findings } = checkmod.run(c);
+  const stale = staleness({ root: c.root, cfg: c.cfg, docs: c.docs, graph: c.graph });
+  const h = healthmod.health({ cfg: c.cfg, docs: c.docs, inv: c.inv, graph: c.graph, registry: c.registry, findings, stale });
+  if (JSONOUT) return emit(h) ?? EXIT.OK;
+  say(`Documentation Health: ${h.overall}/100`);
+  say('');
+  for (const [k, v] of Object.entries(h.components)) say(`  ${k.padEnd(20)} ${String(v).padStart(3)}`);
+  say('');
+  say('Issues:');
+  for (const [k, v] of Object.entries(h.issues)) if (v) say(`  ${v} ${k.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}`);
+  if (h.gaps.length) {
+    say('');
+    say('Documentation the repository implies but does not have:');
+    for (const g of h.gaps.slice(0, 8)) say(`  ${g.label.padEnd(26)} ${g.because === 'baseline' ? 'baseline' : `${g.because} detected`}`);
+    say('');
+    say(`  create with: docgov create ${h.gaps[0].type}`);
+  }
+  return EXIT.OK;
+}
+
+function cmdPublish() {
+  const c = ctx();
+  const res = pubmod.analyze({ cfg: c.cfg, docs: c.docs, target: flags.target ? String(flags.target) : undefined });
+  if (JSONOUT) return emit({ ...res, briefs: res.rewrite.slice(0, 5).map((r) => ({ path: r.path, brief: pubmod.rewriteBrief(r) })) }) ?? EXIT.OK;
+  say('PUBLISHING ANALYSIS');
+  say('');
+  say(`Publishable as-is (${res.publishable.length}):`);
+  for (const p of res.publishable) say(`  ✓ ${p.path}${p.softFlags ? `   (${p.softFlags} soft flag(s) to review)` : ''}`);
+  if (!res.publishable.length) say('  (none)');
+  say('');
+  say(`Blocked (${res.blocked.length}):`);
+  for (const b of res.blocked) {
+    say(`  ✗ ${b.path} — ${b.reason}`);
+    for (const l of (b.leaks || []).slice(0, 3)) say(`      line ${l.line}: ${l.what} (${l.sample})`);
+  }
+  if (!res.blocked.length) say('  (none)');
+  say('');
+  say(`Needs an external-lens rewrite (${res.rewrite.length}) — a public document is a different artifact, not a copy:`);
+  for (const r of res.rewrite.slice(0, 10)) say(`  · ${r.path} (${r.currentVisibility})${r.leaks.length ? `   ${r.leaks.length} pattern(s) to remove` : ''}`);
+  say('');
+  say(res.gate);
+  return EXIT.OK;
+}
+
+function cmdRegistry() {
+  const c = ctx();
+  if (flags.rebuild === true) {
+    reg.save(c.root, c.registry);
+    graphmod.save(c.root, c.graph);
+    if (JSONOUT) return emit({ rebuilt: true, documents: Object.keys(c.registry.documents).length, collisions: c.collisions }) ?? EXIT.OK;
+    say(`Registry rebuilt: ${Object.keys(c.registry.documents).length} document(s).`);
+    if (c.collisions.length) {
+      say('');
+      say('Id collisions (these must be fixed — an id is how agents address a document):');
+      for (const col of c.collisions) say(`  ${col.id}: ${col.paths.join(' and ')}`);
+      return EXIT.VIOLATION;
+    }
+    return EXIT.OK;
+  }
+  if (JSONOUT) return emit(c.registry) ?? EXIT.OK;
+  say(table(Object.entries(c.registry.documents).map(([id, e]) => ({
+    Id: id, Authority: e.authority, Visibility: e.visibility, Path: e.path,
+  })), ['Id', 'Authority', 'Visibility', 'Path']));
+  return EXIT.OK;
+}
+
+function cmdGraph() {
+  const c = ctx();
+  if (flags.save === true) graphmod.save(c.root, c.graph);
+  const j = c.graph.toJSON();
+  if (JSONOUT) return emit(j) ?? EXIT.OK;
+  if (flags.dot === true) {
+    say('digraph docgov {');
+    say('  rankdir=TB; node [shape=box, fontname="Helvetica"];');
+    for (const n of j.nodes) say(`  "${n.id}" [label="${n.id}\\n${n.authority}"];`);
+    for (const e of j.edges) if (!e.inferred) say(`  "${e.from}" -> "${e.to}" [label="${e.rel}"];`);
+    say('}');
+    return EXIT.OK;
+  }
+  say(`${j.nodes.length} node(s), ${j.edges.length} edge(s) (${j.edges.filter((e) => e.inferred).length} inferred)`);
+  say('');
+  const tiers = new Map();
+  for (const n of j.nodes) {
+    const t = AUTHORITY[n.authority]?.tier ?? 9;
+    if (!tiers.has(t)) tiers.set(t, []);
+    tiers.get(t).push(n);
+  }
+  for (const t of [...tiers.keys()].sort()) {
+    say(`Tier ${t} — ${AUTHORITY[tiers.get(t)[0].authority]?.label || ''}`);
+    for (const n of tiers.get(t)) {
+      const outs = c.graph.out(n.id).filter((e) => !e.inferred);
+      say(`  ${n.id}  ${outs.length ? `→ ${outs.map((e) => `${e.rel}:${e.to}`).join(', ')}` : ''}`);
+    }
+    say('');
+  }
+  const orphans = c.graph.orphans();
+  if (orphans.length) say(`${orphans.length} orphan(s): ${orphans.slice(0, 6).map((o) => o.id).join(', ')}`);
+  return EXIT.OK;
+}
+
+function cmdInvariants() {
+  const c = ctx();
+  const set = invariantsmod.collect(c.docs, c.cfg);
+  if (flags.for) {
+    const applicable = invariantsmod.applicable(set, list(flags.for), c.cfg);
+    if (JSONOUT) return emit(applicable) ?? EXIT.OK;
+    const rendered = invariantsmod.render(applicable);
+    if (rendered) say(rendered); else say('No invariants apply to those paths.');
+    return EXIT.OK;
+  }
+  if (JSONOUT) return emit(set) ?? EXIT.OK;
+  if (!set.invariants.length) {
+    say('No invariants declared.');
+    say('');
+    say('Declare them in any canonical document as list items beginning with an id:');
+    say('  - INV-LIC-001 A license belongs to exactly one organization.');
+    say('Then map the code they govern with `documents:` in that document\'s frontmatter,');
+    say('and every agent editing that code gets them injected automatically.');
+    return EXIT.OK;
+  }
+  say(table(set.invariants.map((i) => ({
+    Id: i.id, Domain: i.domain || '', Statement: i.statement.slice(0, 58), Source: i.source,
+  })), ['Id', 'Domain', 'Statement', 'Source']));
+  if (set.duplicates.length) {
+    say('');
+    say('Duplicate invariant ids:');
+    for (const d of set.duplicates) say(`  ${d.id}: ${d.sources.join(' and ')}`);
+    return EXIT.VIOLATION;
+  }
+  return EXIT.OK;
+}
+
+function cmdTypes() {
+  const rows = tpl.listTypes();
+  if (JSONOUT) return emit(rows) ?? EXIT.OK;
+  const filter = flags._[0];
+  const shown = filter ? rows.filter((r) => r.type.includes(filter) || r.authority.includes(filter)) : rows;
+  say(table(shown.map((r) => ({
+    Type: r.type, Label: r.label, Authority: r.authority, Lens: r.lens,
+    Soft: r.soft, Hard: r.hard, Sections: r.sections,
+  })), ['Type', 'Label', 'Authority', 'Lens', 'Soft', 'Hard', 'Sections']));
+  say('');
+  say(`${shown.length} document class(es). Create one with: docgov create <type> "<name>"`);
+  return EXIT.OK;
+}
+
+function cmdCapabilities() {
+  const { root } = cfgmod.load(process.cwd());
+  const plugins = list(flags.plugins);
+  const caps = inv.capabilities(root, plugins);
+  const outPath = path.join(root, '.docgov', 'capabilities.json');
+  write(outPath, JSON.stringify({ generated: new Date().toISOString(), capabilities: caps }, null, 2) + '\n');
+  if (JSONOUT) return emit({ capabilities: caps, written: '.docgov/capabilities.json' }) ?? EXIT.OK;
+  say('Capability registry');
+  say('');
+  for (const [cap, providers] of Object.entries(caps).sort()) say(`  ${cap.padEnd(24)} ${providers.join(', ')}`);
+  say('');
+  say('DocGov delegates to these instead of reimplementing them. Absent capability = DocGov does it itself.');
+  return EXIT.OK;
+}
+
+function cmdSuppress() {
+  const c = ctx();
+  if (flags.list === true || flags._[0] === 'list') {
+    const data = supp.load(c.root, c.cfg);
+    if (JSONOUT) return emit(data) ?? EXIT.OK;
+    if (!data.suppressions.length) { say('No suppressions.'); return EXIT.OK; }
+    say(table(data.suppressions.map((s) => ({ Id: s.id, Created: s.created, Expires: s.expires || 'never', Reason: s.reason })),
+      ['Id', 'Created', 'Expires', 'Reason']));
+    return EXIT.OK;
+  }
+  if (flags.remove) {
+    const ok = supp.remove(c.root, c.cfg, String(flags.remove));
+    say(ok ? `Removed suppression ${flags.remove}.` : `No suppression with id ${flags.remove}.`);
+    return ok ? EXIT.OK : EXIT.CONFIG;
+  }
+  const id = flags._[0] || flags.id;
+  if (!id) throw new DocGovError('usage: docgov suppress <FINDING-ID> --reason "why" [--expires YYYY-MM-DD]');
+  const entry = supp.add(c.root, c.cfg, { id: String(id), reason: flags.reason, expires: flags.expires ? String(flags.expires) : null, by: flags.by ? String(flags.by) : null });
+  if (JSONOUT) return emit(entry) ?? EXIT.OK;
+  say(`Suppressed ${entry.id}${entry.expires ? ` until ${entry.expires}` : ''}: ${entry.reason}`);
+  say('It stays visible in `docgov suppress --list` and in every report. Nothing is silently ignored.');
+  return EXIT.OK;
+}
+
+function cmdReviewPackets() {
+  const c = ctx();
+  const base = flags.base ? String(flags.base) : 'HEAD';
+  const what = flags._[0] || 'drift';
+  if (what === 'contradictions') {
+    const planPath = path.join(c.root, onboardmod.PLAN_DATA_PATH);
+    const pairs = exists(planPath)
+      ? JSON.parse(read(planPath)).contradictionCandidates
+      : onboardmod.plan(c).contradictionCandidates;
+    const packets = pairs.slice(0, parseInt(flags.limit || '10', 10)).map((p) => ({
+      pair: [p.a, p.b], score: p.score, note: p.note,
+      a: excerpt(c.docs.find((d) => d.path === p.a)), b: excerpt(c.docs.find((d) => d.path === p.b)),
+    }));
+    emitOrPrint({ kind: 'contradictions', packets });
+    return EXIT.OK;
+  }
+  if (what === 'quality') {
+    const { findings } = checkmod.run(c);
+    const targets = flags.path ? c.docs.filter((d) => d.path === flags.path) : c.docs;
+    const packets = targets.map((d) => ({
+      ...healthmod.qualityFloor({ cfg: c.cfg, doc: d, findings }),
+      lens: d.lens, agentReadiness: ctxpack.agentReadiness(d), excerpt: excerpt(d),
+    }));
+    emitOrPrint({ kind: 'quality', packets });
+    return EXIT.OK;
+  }
+  const drift = driftmod.analyze({ root: c.root, cfg: c.cfg, docs: c.docs, graph: c.graph, base });
+  const packets = driftmod.reviewPackets({ root: c.root, findings: drift.findings, base,
+    limit: parseInt(flags.limit || '12', 10) });
+  for (const p of packets) {
+    const doc = c.docs.find((d) => d.path === p.document);
+    p.documentExcerpt = excerpt(doc);
+  }
+  emitOrPrint({ kind: 'drift', packets });
+  return EXIT.OK;
+}
+
+function emitOrPrint(obj) {
+  if (JSONOUT) return emit(obj);
+  console.log(JSON.stringify(obj, null, 2));
+}
+
+function excerpt(doc, chars = 2500) {
+  if (!doc) return null;
+  const body = doc.body.trim();
+  return { path: doc.path, type: doc.type, authority: doc.authority,
+    text: body.length <= chars ? body : `${body.slice(0, chars)}\n… (${body.length - chars} more characters)` };
+}
+
+// ───────────────────────────── hook protocol ─────────────────────────────
+
+/**
+ * `docgov hook <event>` reads the Claude Code hook JSON on stdin and writes hook
+ * JSON on stdout. This is ring 1 from FEASIBILITY §3.1: pure CLI, no model call,
+ * budgeted at well under 100 ms so it can run on every single write.
+ */
+function cmdHook() {
+  const event = flags._[0] || 'pre-write';
+  const input = readStdinJSON();
+  const handlers = {
+    'pre-tool': hookPreTool,
+    'pre-write': hookPreWrite,
+    'post-write': hookPostWrite,
+    'session-start': hookSessionStart,
+    'pre-code-edit': hookPreCodeEdit,
+    'stop': hookStop,
+  };
+  const h = handlers[event];
+  if (!h) { process.stderr.write(`docgov hook: unknown event "${event}"\n`); return EXIT.OK; }
+  try { return h(input); }
+  catch (e) {
+    // A governance hook must never break the user's session. Fail open, say why.
+    process.stderr.write(`docgov hook ${event}: ${e.message}\n`);
+    return EXIT.OK;
+  }
+}
+
+/**
+ * Single PreToolUse entry point. Routes on the target path so one node process
+ * serves both the documentation gate and the invariant injection — two hooks on
+ * the same matcher would double the per-edit latency for no benefit.
+ */
+function hookPreTool(input) {
+  const abs = targetPathOf(input);
+  if (!abs) return EXIT.OK;
+  return /\.mdx?$/.test(abs) ? hookPreWrite(input) : hookPreCodeEdit(input);
+}
+
+function readStdinJSON() {
+  let raw = '';
+  try { raw = fs.readFileSync(0, 'utf8'); } catch { return {}; }
+  try { return JSON.parse(raw || '{}'); }
+  catch (e) {
+    // Fail open — a governance hook must never break a session — but never silently:
+    // a malformed payload that produces no output is indistinguishable from "all clear".
+    process.stderr.write(`docgov hook: could not parse hook input (${e.message}); doing nothing\n`);
+    return {};
+  }
+}
+
+function hookOut(event, fields) {
+  console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: event, ...fields } }));
+}
+
+function targetPathOf(input) {
+  const ti = input.tool_input || {};
+  return ti.file_path || ti.path || ti.notebook_path || null;
+}
+
+function hookPreWrite(input) {
+  const abs = targetPathOf(input);
+  if (!abs) return EXIT.OK;
+  const { root, cfg, initialized } = cfgmod.load(input.cwd || process.cwd());
+  if (!initialized) return EXIT.OK;
+  const rel = toPosix(path.relative(root, abs));
+  if (rel.startsWith('..')) return EXIT.OK;
+  if (!/\.mdx?$/.test(rel) && !/\.docgov\//.test(rel)) return EXIT.OK;
+
+  const registry = reg.load(root);
+  const isNew = !exists(abs);
+  const content = (input.tool_input || {}).content ?? null;
+  const reasons = checkmod.preWrite({ cfg, relPath: rel, registry, isNew, content });
+
+  const blocking = reasons.filter((r) => r.blocking);
+  if (blocking.length) {
+    hookOut('PreToolUse', {
+      permissionDecision: 'deny',
+      permissionDecisionReason: [
+        `DocGov blocked this write to ${rel}:`,
+        ...blocking.map((r) => `  ${r.rule}: ${r.message}${r.fix ? `\n    → ${r.fix}` : ''}`),
+        '',
+        'This is a deterministic rule, not a judgement call. Fix the cause or run',
+        '`docgov suppress <id> --reason "..."` if the rule is wrong here.',
+      ].join('\n'),
+    });
+    return EXIT.OK;
+  }
+
+  const advisory = reasons.filter((r) => !r.blocking);
+  const guidance = [];
+  if (isNew && /\.mdx?$/.test(rel)) {
+    const doc = { path: rel, body: content || '', frontmatter: {} };
+    const c = classify(doc);
+    if (c.type !== 'unknown') {
+      const def = typeDef(c.type);
+      const dest = destinationFor(cfg, c.type, rel);
+      guidance.push(`DocGov: this looks like a ${def.label} (${c.confidence}% confidence).`);
+      if (dest !== rel) guidance.push(`  Canonical location: ${dest}`);
+      if (def.sections?.length) guidance.push(`  Required sections: ${def.sections.join(', ')}`);
+      if (def.soft) guidance.push(`  Soft limit ${def.soft} lines, hard ${def.hard}.`);
+      guidance.push(`  Add frontmatter: docgov: { id, type: ${c.type}, authority: ${def.authority}, visibility: ${def.visibility} }`);
+      const existing = Object.entries(registry.documents).filter(([, e]) => e.type === c.type);
+      if (existing.length && def.singleton) guidance.push(`  ⚠ a ${def.label} already exists at ${existing[0][1].path} — update it instead of creating a second one`);
+    } else {
+      guidance.push(`DocGov: could not classify ${rel}. Run \`docgov classify --path ${rel}\` or declare docgov.type explicitly.`);
+    }
+  }
+  for (const a of advisory) guidance.push(`DocGov (advisory) ${a.rule}: ${a.message}${a.fix ? ` — ${a.fix}` : ''}`);
+
+  if (guidance.length) hookOut('PreToolUse', { additionalContext: guidance.join('\n') });
+  return EXIT.OK;
+}
+
+function hookPostWrite(input) {
+  const abs = targetPathOf(input);
+  if (!abs) return EXIT.OK;
+  const { root, cfg, initialized } = cfgmod.load(input.cwd || process.cwd());
+  if (!initialized || !exists(abs)) return EXIT.OK;
+  const rel = toPosix(path.relative(root, abs));
+  if (rel.startsWith('..') || !/\.mdx?$/.test(rel)) return EXIT.OK;
+
+  const i = inv.inventory(root, cfg);
+  const { registry } = reg.build(i.documents, i.contracts);
+  const graph = graphmod.build(i.documents, registry, cfg, i.contracts);
+  reg.save(root, registry);
+  graphmod.save(root, graph);
+
+  const { findings } = checkmod.run({ root, cfg, docs: i.documents, registry, graph, inv: i, only: [rel] });
+  const mine = findings.filter((f) => f.path === rel);
+  if (!mine.length) return EXIT.OK;
+
+  const node = [...graph.nodes.values()].find((n) => n.path === rel);
+  const dependents = node ? graph.in(node.id, 'depended_on_by').concat(graph.in(node.id, 'depends_on')) : [];
+
+  const lines = [`DocGov checked ${rel}:`];
+  for (const f of mine.slice(0, 8)) lines.push(`  ${f.severity} ${f.rule}: ${f.message}${f.fix ? ` (${f.fix})` : ''}`);
+  if (dependents.length) {
+    lines.push(`  ${dependents.length} document(s) declare a dependency on this one — check they still agree:`);
+    for (const d of dependents.slice(0, 4)) lines.push(`    ${graph.nodes.get(d.from)?.path || d.from}`);
+  }
+  hookOut('PostToolUse', { additionalContext: lines.join('\n') });
+  return EXIT.OK;
+}
+
+function hookSessionStart(input) {
+  const { root, cfg, initialized } = cfgmod.load(input.cwd || process.cwd());
+  if (!initialized) return EXIT.OK;
+  const registry = reg.load(root);
+  const ids = Object.entries(registry.documents);
+  const canonical = ids.filter(([, e]) => e.authority === 'canonical' || e.authority === 'constitution');
+
+  const L = [];
+  L.push(`DocGov is active in this repository (mode: ${cfg.project.mode}, layout: ${cfg.project.layout}).`);
+  L.push(`${ids.length} governed document(s). Before creating documentation, run \`docgov classify --path <file>\`;`);
+  L.push('before editing code in a governed domain, run `docgov context <domain>`.');
+  if (canonical.length) {
+    L.push('');
+    L.push('Authoritative documents (nothing may contradict these):');
+    for (const [id, e] of canonical.slice(0, 12)) L.push(`  ${id.padEnd(28)} ${e.path}`);
+  }
+  const domains = Object.keys(cfg.domains || {});
+  if (domains.length) L.push(`\nGoverned domains: ${domains.join(', ')}`);
+  L.push('');
+  L.push('Rules: .claude/rules/documentation.md');
+  hookOut('SessionStart', { additionalContext: L.join('\n') });
+  return EXIT.OK;
+}
+
+/**
+ * The cheapest high-value hook in the product: before an agent edits governed
+ * code, hand it the invariants that constrain that code (PRD §24).
+ */
+function hookPreCodeEdit(input) {
+  const abs = targetPathOf(input);
+  if (!abs) return EXIT.OK;
+  const { root, cfg, initialized } = cfgmod.load(input.cwd || process.cwd());
+  if (!initialized) return EXIT.OK;
+  const rel = toPosix(path.relative(root, abs));
+  if (rel.startsWith('..') || /\.mdx?$/.test(rel)) return EXIT.OK;
+
+  const i = inv.inventory(root, cfg);
+  const set = invariantsmod.collect(i.documents, cfg);
+  const applicable = invariantsmod.applicable(set, [rel], cfg);
+
+  const { registry } = reg.build(i.documents, i.contracts);
+  const graph = graphmod.build(i.documents, registry, cfg, i.contracts);
+  const docsClaiming = graphmod.codeNodesFor(graph, rel)
+    .flatMap((n) => graph.in(n.id, 'documents').map((e) => graph.nodes.get(e.from)))
+    .filter(Boolean);
+
+  if (!applicable.length && !docsClaiming.length) return EXIT.OK;
+  const L = [];
+  if (applicable.length) L.push(invariantsmod.render(applicable));
+  if (docsClaiming.length) {
+    L.push('');
+    L.push('Documents that describe this code and may need updating in the same change:');
+    for (const d of docsClaiming) L.push(`  ${d.path}  [${d.authority}]`);
+  }
+  hookOut('PreToolUse', { additionalContext: L.join('\n') });
+  return EXIT.OK;
+}
+
+function hookStop(input) {
+  const { root, cfg, initialized } = cfgmod.load(input.cwd || process.cwd());
+  if (!initialized || !git.isRepo(root)) return EXIT.OK;
+  const i = inv.inventory(root, cfg);
+  const { registry } = reg.build(i.documents, i.contracts);
+  const graph = graphmod.build(i.documents, registry, cfg, i.contracts);
+  const impact = impactmod.analyze({ root, cfg, docs: i.documents, graph, base: 'HEAD' });
+  const m = impactmod.manifest(impact);
+  if (!m.docs.outstanding.length) return EXIT.OK;
+  hookOut('Stop', {
+    additionalContext: [
+      'DocGov: this change has outstanding documentation obligations.',
+      ...m.docs.outstanding.map((id) => `  ${id} — ${registry.documents[id]?.path || '(unregistered)'}`),
+      'Either update them, or say explicitly why they do not need updating.',
+      'Full picture: docgov impact',
+    ].join('\n'),
+  });
+  return EXIT.OK;
+}
+
+// ───────────────────────────── misc ─────────────────────────────
+
+function inferMode(root, i) {
+  if (exists(path.join(root, 'LICENSE')) || exists(path.join(root, 'LICENSE.md'))) {
+    if (exists(path.join(root, 'CONTRIBUTING.md')) || exists(path.join(root, '.github'))) return 'open-source';
+  }
+  if (exists(path.join(root, 'CODEOWNERS')) || exists(path.join(root, '.github', 'CODEOWNERS'))) return 'team';
+  if (i.documents.length > 40 || i.stack.some((s) => s.id === 'kubernetes' || s.id === 'terraform')) return 'team';
+  return 'solo';
+}
+
+function projectName(root) {
+  const pkg = path.join(root, 'package.json');
+  if (exists(pkg)) { try { return JSON.parse(read(pkg)).name || path.basename(root); } catch { /* fall through */ } }
+  return path.basename(root);
+}
+
+function packageVersion() {
+  try { return JSON.parse(read(new URL('../package.json', import.meta.url))).version; } catch { return '0.0.0'; }
+}
+
+function agentRules(cfg) {
+  return read(new URL('../rules/documentation.md', import.meta.url))
+    .replace(/\{\{MODE\}\}/g, cfg.project.mode)
+    .replace(/\{\{LAYOUT\}\}/g, cfg.project.layout)
+    .replace(/\{\{BLOCKING\}\}/g, (cfg.governance.enforce || []).join(', '));
+}
+
+function usage() {
+  console.log(`docgov ${packageVersion()} — documentation governance for agentic development
+
+Setup
+  init [--mode M] [--layout full|compact]   establish governance in this repository
+  onboard                                   inventory, classify, and write a migration plan
+  migrate [--dry-run] [--include split,..]  execute the plan transactionally on a branch
+
+Authoring
+  types [filter]                            list document classes
+  classify [--path P]                       what is this document, and where does it belong
+  create <type> "<name>" [--domain D]       new document, wired into the graph
+  organize [--apply] [--path P]             add missing frontmatter
+
+Governance
+  check [--changed] [--base REF] [--all]    deterministic rules; exit 1 blocks, 2 needs review
+  drift [--base REF]                        forward, reverse, contract and dependency drift
+  impact [--base REF] [paths...]            which documents a change affects
+  manifest [--pr]                           change manifest; --pr prints the PR comment
+  health                                    scored documentation health
+  find "<query>"                            authority-ordered search
+  context <topic>                           minimal authoritative context pack for agents
+  invariants [--for paths]                  invariants, or the ones governing given paths
+  publish [--target DIR]                    what is safe to publish, and what leaks
+  suppress <ID> --reason "..." [--expires D] record a deliberate exception
+
+Plumbing
+  registry [--rebuild]     graph [--dot] [--save]     capabilities     review <drift|contradictions|quality>
+  hook <pre-tool|pre-write|post-write|session-start|pre-code-edit|stop>
+
+Every command accepts --json. Exit codes: 0 pass, 1 deterministic violation, 2 review required, 3 config error.`);
+  return EXIT.OK;
+}

@@ -22,6 +22,7 @@ export class Document {
     this.path = toPosix(rel);
     this.source = source ?? read(path.join(root, rel));
     this.error = null;
+    this.foreignFrontmatter = fm.foreignFence(this.source ?? '');
     let parsed;
     try { parsed = fm.parse(this.source); }
     catch (e) { this.error = e.message; parsed = { data: {}, body: this.source, hasFrontmatter: true }; }

@@ -179,6 +179,16 @@ export function plan({ root, cfg, docs, inv, graph, registry }) {
     claimed.set(a.to, a.path);
   }
 
+  // A stable id per action, so a human can drop one without editing either artifact.
+  // The rendered plan used to say "delete any action you disagree with", but `fix` reads
+  // the JSON: deleting from the Markdown changed nothing and every action still ran.
+  for (const a of actions) {
+    const basis = `${a.kind}:${a.path}:${a.to || ''}`;
+    let h = 0;
+    for (let i = 0; i < basis.length; i++) h = (h * 31 + basis.charCodeAt(i)) >>> 0;
+    a.id = `DG-${String(h % 100000).padStart(5, '0')}`;
+  }
+
   const summary = {
     documents: docs.length,
     unclassified: classifications.filter((c) => c.proposed === 'unknown').length,
@@ -266,7 +276,7 @@ export function render(planData, cfg) {
     L.push(blurb);
     L.push('');
     for (const a of items) {
-      if (kind === 'MOVE' || kind === 'ARCHIVE') L.push(`- \`${a.path}\` → \`${a.to}\`  \n  ${a.reason}`);
+      if (kind === 'MOVE' || kind === 'ARCHIVE') L.push(`- \`${a.id}\` \`${a.path}\` → \`${a.to}\`  \n  ${a.reason}`);
       else if (kind === 'SPLIT') {
         L.push(`- \`${a.path}\` — ${a.reason}`);
         for (const part of a.into) L.push(`    - \`${part.to}\` ← "${part.title}" (${part.lines} lines)`);

@@ -927,6 +927,118 @@ test('cli: a generated documentation site is classified but never relocated', ()
   assert.equal(cli(dir, ['fix', '--dry-run']).code, 0);
 });
 
+test('plugin: every declared userConfig option actually changes behaviour', async () => {
+  // plugin.json advertised three options and the engine referenced none of them. An option
+  // that silently does nothing is a broken contract — and for `semantic_gate`, which claimed
+  // to switch off the only thing that leaves the machine, a false security control.
+  const manifest = JSON.parse(fs.readFileSync(new URL('../.claude-plugin/plugin.json', import.meta.url), 'utf8'));
+  const declared = Object.keys(manifest.userConfig || {});
+  assert.deepEqual(declared.sort(), ['enforcement', 'session_briefing'],
+    'only options the plugin can honour may be declared');
+
+  const cfgm = await import('../core/config.js');
+  const cfg = { governance: { warn_only: false, enforce: ['duplicate-id'] } };
+  // enforcement: repo → the repository decides
+  assert.equal(cfgm.blocks(cfg, 'duplicate-id', {}), true);
+  assert.equal(cfgm.blocks(cfg, 'broken-link', {}), false);
+  // enforcement: warn → nothing blocks
+  const warn = { CLAUDE_PLUGIN_OPTION_enforcement: 'warn' };
+  assert.equal(cfgm.blocks(cfg, 'duplicate-id', warn), false, 'warn must never block');
+  // enforcement: strict → everything deterministic blocks
+  const strict = { CLAUDE_PLUGIN_OPTION_enforcement: 'strict' };
+  assert.equal(cfgm.blocks(cfg, 'broken-link', strict), true, 'strict must block every check');
+});
+
+test('plugin: session_briefing=false suppresses the session briefing', () => {
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  const payload = JSON.stringify({ cwd: dir });
+
+  const on = execFileSync(process.execPath, [BIN, "hook", "session-start"],
+    { input: payload, encoding: 'utf8', cwd: dir });
+  assert.match(on, /DocGov is active/, 'the briefing is on by default');
+
+  const off = execFileSync(process.execPath, [BIN, "hook", "session-start"],
+    { input: payload, encoding: 'utf8', cwd: dir,
+      env: { ...process.env, CLAUDE_PLUGIN_OPTION_session_briefing: 'false' } });
+  assert.doesNotMatch(off, /DocGov is active/, 'and off when the option says so');
+});
+
+test('cli: TOML or JSON frontmatter is never overwritten with a YAML block', () => {
+  // Hugo accepts TOML (+++) and JSON frontmatter. DocGov's fence only matches YAML, so such
+  // a document looked like one with no frontmatter and got a YAML block prepended *above*
+  // the real one — Hugo then reads the injected block and renders the original as body
+  // text, losing the page's title, weight and draft status.
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  wf(dir, 'site/config.toml', 'baseURL = "/"\n');
+  const original = '+++\ntitle = "CHW-1001"\nweight = 1001\ndraft = false\n+++\n\n# Body\n';
+  wf(dir, 'site/content/errors/CHW-1001.md', original);
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+  cli(dir, ['review']);
+  commit(dir);
+  const r = cli(dir, ['fix', '--no-branch']);
+  assert.equal(r.code, 0, 'the run completes');
+  assert.equal(fs.readFileSync(path.join(dir, 'site/content/errors/CHW-1001.md'), 'utf8'), original,
+    'the page must be byte-identical');
+  assert.match(r.out, /TOML frontmatter/, 'and must say why it was left alone');
+});
+
+test('cli: a scan that could not see everything says so', () => {
+  // "no findings" has to mean the intended scope was inspected. A directory too deep, one
+  // that cannot be read, and a symlink that is not followed all used to vanish silently,
+  // and silence is indistinguishable from compliance.
+  const dir = tmpRepo();
+  wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+  const deep = path.join(dir, 'docs', ...Array(13).fill('x'));
+  fs.mkdirSync(deep, { recursive: true });
+  fs.writeFileSync(path.join(deep, 'buried.md'), '# Buried\n');
+  fs.mkdirSync(path.join(dir, 'other'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'other', 'real.md'), '# Real\n');
+  fs.symlinkSync(path.join(dir, 'other', 'real.md'), path.join(dir, 'docs', 'linked.md'));
+  commit(dir);
+  cli(dir, ['setup', '--mode', 'solo']);
+
+  const r = cli(dir, ['check']);
+  assert.match(r.out, /Scan incomplete/, 'the report must admit it');
+  assert.match(r.out, /scan limit|symlink/, 'and name a reason');
+
+  const j = JSON.parse(cli(dir, ['check', '--json']).out);
+  assert.ok(Array.isArray(j.scanSkipped) && j.scanSkipped.length >= 1,
+    'and CI must be able to see it too');
+});
+
+test('cli: a plan may not move a document outside the repository', () => {
+  // The plan is an editable file — a human resolves collisions in it — so anything that can
+  // write it can choose where a document lands. The boundary used to be held only by
+  // `git mv` refusing an outside path, which is incidental, and absent entirely on the
+  // --no-git path where fs.renameSync wrote wherever it was told.
+  const tag = `docgov-escape-${process.pid}-${Date.now()}.md`;
+  for (const target of [`../${tag}`, `/tmp/${tag}`, `docs/../../${tag}`]) {
+    const dir = tmpRepo();
+    wf(dir, 'README.md', '# T\n\n## Install\n\n## Usage\n');
+    wf(dir, 'docs/a.md', '# D\n\nbody\n');
+    commit(dir);
+    cli(dir, ['setup', '--mode', 'solo']);
+    cli(dir, ['review']);
+    const planPath = path.join(dir, '.docgov', 'fix-plan.json');
+    const plan = JSON.parse(fs.readFileSync(planPath, 'utf8'));
+    plan.actions = [{ kind: 'MOVE', path: 'docs/a.md', to: target, reason: 'poisoned', risk: 'low', type: 'note.internal' }];
+    fs.writeFileSync(planPath, JSON.stringify(plan));
+    commit(dir);
+
+    const r = cli(dir, ['fix', '--no-branch', '--no-git']);
+    assert.notEqual(r.code, 0, `${target} must be refused`);
+    assert.match(r.out + r.err, /outside the repository/, 'and must say why');
+    assert.ok(!fs.existsSync(path.join(dir, '..', tag)), 'nothing may land beside the repository');
+    assert.ok(!fs.existsSync(path.join('/tmp', tag)), 'nor at an absolute path');
+    assert.ok(fs.existsSync(path.join(dir, 'docs', 'a.md')), 'and the source stays put');
+  }
+});
+
 test('cli: test fixtures are not documentation', () => {
   // A README inside a fixture describes the fixture. Moving it out breaks the test that
   // resolves paths into that tree — ShellPilot's k8s tests do exactly that.

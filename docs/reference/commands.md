@@ -98,6 +98,7 @@ docgov fix --include split,merge,extract    # also the judgement calls
 | `--no-branch` | work on the current branch |
 | `--no-git` | skip git entirely. You lose the revert guarantee |
 | `--commit` | commit on success |
+| `--skip <ID,..>` | drop individual actions by the id shown in the plan |
 | `--keep` | don't revert if verification fails — useful for debugging |
 
 **Needs git and a clean tree.** If verification finds problems it runs `git reset --hard` and

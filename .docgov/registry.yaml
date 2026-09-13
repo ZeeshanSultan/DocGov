@@ -7,8 +7,8 @@ documents:
     visibility: public
     title: Architecture
     owner: docgov
-    hash: 6f392fb4f3c46bac
-    lines: 123
+    hash: 2217497e97ba31aa
+    lines: 124
     relationships:
       implements:
         - docgov-prd
